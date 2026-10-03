@@ -1,0 +1,15 @@
+{
+  "security": {
+    "auth": {
+      "selectedType": "deepseek-web"
+    },
+    "autoApprove": true
+  },
+  "model": {
+    "name": "deepseek-expert"
+  },
+  "deepseek": {
+    "thinking": false,
+    "webSearch": true
+  }
+}
