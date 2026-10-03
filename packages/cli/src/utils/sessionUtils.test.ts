@@ -1270,7 +1270,7 @@ describe('convertSessionToHistoryFormats', () => {
         timestamp: new Date().toISOString(),
         type: 'user',
         content:
-          '<session_context>\nThis is the Gemini CLI\n</session_context>',
+          '<session_context>\nThis is DeepSeek CLI\n</session_context>',
       },
       {
         id: '2',

@@ -541,7 +541,7 @@ describe('MCPOAuthProvider', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            client_name: 'Gemini CLI MCP Client',
+            client_name: 'DeepSeek CLI MCP Client',
             redirect_uris: [
               'https://7777-my-workstation.cluster.workstations.cloud.google.com/oauth/callback',
             ],

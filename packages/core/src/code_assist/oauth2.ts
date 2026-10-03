@@ -261,7 +261,7 @@ async function initOauthClient(
     if (!config.isInteractive()) {
       throw new FatalAuthenticationError(
         'Manual authorization is required but the current session is non-interactive. ' +
-          'Please run the Gemini CLI in an interactive terminal to log in, ' +
+          'Please run the DeepSeek CLI in an interactive terminal to log in, ' +
           'provide a GEMINI_API_KEY, or ensure Application Default Credentials are configured.',
       );
     }
@@ -287,7 +287,7 @@ async function initOauthClient(
       }
     } finally {
       exitAlternateScreen();
-      // If this was triggered from an active Gemini CLI TUI this event ensures
+      // If this was triggered from an active DeepSeek CLI TUI this event ensures
       // the TUI will re-initialize the terminal state just like it will when
       // another editor like VIM may have modified the buffer of settings.
       coreEvents.emit(CoreEvent.ExternalEditorClosed);

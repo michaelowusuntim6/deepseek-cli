@@ -194,7 +194,7 @@ export function getAutoModelDescription(
       ? LATEST_GEMINI_FLASH_MODEL
       : PREVIEW_GEMINI_FLASH_MODEL
     : DEFAULT_GEMINI_FLASH_MODEL;
-  return `Let Gemini CLI decide the best model for the task: ${getDisplayString(proModel)}, ${getDisplayString(flashModel)}`;
+  return `Let DeepSeek CLI decide the best model for the task: ${getDisplayString(proModel)}, ${getDisplayString(flashModel)}`;
 }
 
 /**

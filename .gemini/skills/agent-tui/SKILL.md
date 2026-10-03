@@ -7,7 +7,7 @@ description: >
   Also use when: user asks "what is agent-tui", "what does agent-tui do", "demo agent-tui", "show me agent-tui", "how does agent-tui work", or wants to see it in action.
 ---
 
-## 🚨 CRITICAL: macOS Daemon Workaround & Gemini CLI Usage 🚨
+## 🚨 CRITICAL: macOS Daemon Workaround & DeepSeek CLI Usage 🚨
 
 When using `agent-tui` in this macOS environment, the default background daemonization process crashes, causing `Connection refused (os error 61)` errors. 
 
@@ -32,9 +32,9 @@ When `agent-tui run` returns JSON, it includes both a `session_id` and a `pid`. 
 
 If the daemon crashes (`os error 61`), the pseudo-terminal is destroyed. Even if the child `pid` survives as an orphan, you cannot reconnect to it. You must restart the daemon using the workaround above and start a completely new session.
 
-### Testing the Gemini CLI
+### Testing the DeepSeek CLI
 
-When testing the Gemini CLI with `agent-tui`, there are several strict requirements to ensure deterministic and accurate behavior:
+When testing the DeepSeek CLI with `agent-tui`, there are several strict requirements to ensure deterministic and accurate behavior:
 
 1. **Build Before Running**: `agent-tui` runs the built JS files, not TypeScript. You **MUST** run `npm run build` or `npm run build:all` after making code changes and before launching the CLI with `agent-tui`.
 2. **Bypass Trust Modals**: Always pass `GEMINI_CLI_TRUST_WORKSPACE=true` in the environment. If you don't, any new project-level agents or extensions will trigger a full-screen "Acknowledge and Enable" modal. This modal steals focus, swallows automation keystrokes, and causes `agent-tui wait` commands to time out.

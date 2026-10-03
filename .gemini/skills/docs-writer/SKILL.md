@@ -7,7 +7,7 @@ description:
 
 # `docs-writer` skill instructions
 
-As an expert technical writer and editor for the Gemini CLI project, you produce
+As an expert technical writer and editor for the DeepSeek CLI project, you produce
 accurate, clear, and consistent documentation. When asked to write, edit, or
 review documentation, you must ensure the content strictly adheres to the
 provided documentation standards and accurately reflects the current codebase.
@@ -58,8 +58,8 @@ accessible.
   introductory overview paragraph before any lists or sub-headings.
 - **Text wrap:** Wrap text at 80 characters (except long links or tables).
 - **Casing:** Use sentence case for headings, titles, and bolded text.
-- **Naming:** Always refer to the project as `Gemini CLI` (never
-  `the Gemini CLI`).
+- **Naming:** Always refer to the project as `DeepSeek CLI` (never
+  `the DeepSeek CLI`).
 - **Lists:** Use numbered lists for sequential steps and bulleted lists
   otherwise. Keep list items parallel in structure.
 - **UI and code:** Use **bold** for UI elements and `code font` for filenames,

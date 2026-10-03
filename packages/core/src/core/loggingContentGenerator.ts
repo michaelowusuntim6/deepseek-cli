@@ -156,6 +156,23 @@ export class LoggingContentGenerator implements ContentGenerator {
     return this.wrapped;
   }
 
+  // Fix 4: DeepSeek CLI runs on the DeepSeek web chat, which picks its own
+  // model server-side. Utility calls (summarizer, compressor, router, ...)
+  // still resolve through the Gemini model-config table, so without this the
+  // exit usage table showed gemini-* rows. Report every request as a DeepSeek
+  // model when the active provider is deepseek-web.
+  private displayModel(model: string | undefined): string {
+    const authType = this.config.getContentGeneratorConfig?.()?.authType;
+    if (
+      authType === 'deepseek-web' &&
+      model &&
+      model.toLowerCase().startsWith('gemini')
+    ) {
+      return 'deepseek-chat';
+    }
+    return model ?? 'unknown';
+  }
+
   get userTier(): UserTierId | undefined {
     return this.wrapped.userTier;
   }
@@ -357,6 +374,7 @@ export class LoggingContentGenerator implements ContentGenerator {
     userPromptId: string,
     role: LlmRole,
   ): Promise<GenerateContentResponse> {
+    req = { ...req, model: this.displayModel(req.model) };
     return runInDevTraceSpan(
       {
         operation: GeminiCliOperation.LLMCall,
@@ -449,6 +467,7 @@ export class LoggingContentGenerator implements ContentGenerator {
     userPromptId: string,
     role: LlmRole,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
+    req = { ...req, model: this.displayModel(req.model) };
     return runInDevTraceSpan(
       {
         operation: GeminiCliOperation.LLMCall,

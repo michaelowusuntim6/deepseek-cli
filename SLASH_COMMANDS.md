@@ -70,7 +70,7 @@ settings (`security.auth.selectedType = "deepseek-web"`, defaulted by
 
 | Command | Action | Status |
 | --- | --- | --- |
-| `/thinking` (alias `/think`) | Toggle deepseek.thinking (default off); payload sends thinking_enabled | **added** |
-| `/search` | Toggle deepseek.webSearch (default on); payload sends search_enabled | **added** |
+| `/thinking` (alias `/think`) | On/Off picker for deepseek.thinking (default off); payload sends thinking_enabled | **added** |
+| `/search` | On/Off picker for deepseek.webSearch (default on); payload sends search_enabled | **added** |
 | `/provider` | Show or switch backend: deepseek-web, openai-compatible, llamacpp | **added** |
 | `/model` | Picker now offers deepseek-chat, deepseek-expert (+ the configured local provider model) | **rebranded** |

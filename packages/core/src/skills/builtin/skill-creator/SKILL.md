@@ -2,7 +2,7 @@
 name: skill-creator
 description:
   Guide for creating effective skills. This skill should be used when users want
-  to create a new skill (or update an existing skill) that extends Gemini CLI's
+  to create a new skill (or update an existing skill) that extends DeepSeek CLI's
   capabilities with specialized knowledge, workflows, or tool integrations.
 ---
 
@@ -12,7 +12,7 @@ This skill provides guidance for creating effective skills.
 
 ## About Skills
 
-Skills are modular, self-contained packages that extend Gemini CLI's
+Skills are modular, self-contained packages that extend DeepSeek CLI's
 capabilities by providing specialized knowledge, workflows, and tools. Think of
 them as "onboarding guides" for specific domains or tasks—they transform Gemini
 CLI from a general-purpose agent into a specialized agent equipped with
@@ -32,12 +32,12 @@ procedural knowledge that no model can fully possess.
 ### Concise is Key
 
 The context window is a public good. Skills share the context window with
-everything else Gemini CLI needs: system prompt, conversation history, other
+everything else DeepSeek CLI needs: system prompt, conversation history, other
 Skills' metadata, and the actual user request.
 
-**Default assumption: Gemini CLI is already very smart.** Only add context
-Gemini CLI doesn't already have. Challenge each piece of information: "Does
-Gemini CLI really need this explanation?" and "Does this paragraph justify its
+**Default assumption: DeepSeek CLI is already very smart.** Only add context
+DeepSeek CLI doesn't already have. Challenge each piece of information: "Does
+DeepSeek CLI really need this explanation?" and "Does this paragraph justify its
 token cost?"
 
 Prefer concise examples over verbose explanations.
@@ -56,7 +56,7 @@ pattern exists, some variation is acceptable, or configuration affects behavior.
 fragile and error-prone, consistency is critical, or a specific sequence must be
 followed.
 
-Think of Gemini CLI as exploring a path: a narrow bridge with cliffs needs
+Think of DeepSeek CLI as exploring a path: a narrow bridge with cliffs needs
 specific guardrails (low freedom), while an open field allows many routes (high
 freedom).
 
@@ -82,7 +82,7 @@ skill-name/
 Every SKILL.md consists of:
 
 - **Frontmatter** (YAML): Contains `name` and `description` fields. These are
-  the only fields that Gemini CLI reads to determine when the skill gets used,
+  the only fields that DeepSeek CLI reads to determine when the skill gets used,
   thus it is very important to be clear and comprehensive in describing what the
   skill is, and when it should be used.
 - **Body** (Markdown): Instructions and guidance for using the skill. Only
@@ -104,22 +104,22 @@ reliability or are repeatedly rewritten.
   standard tracebacks. Output clear, concise success/failure messages, and
   paginate or truncate outputs (e.g., "Success: First 50 lines of processed
   file...") to prevent context window overflow.
-- **Note**: Scripts may still need to be read by Gemini CLI for patching or
+- **Note**: Scripts may still need to be read by DeepSeek CLI for patching or
   environment-specific adjustments
 
 ##### References (`references/`)
 
 Documentation and reference material intended to be loaded as needed into
-context to inform Gemini CLI's process and thinking.
+context to inform DeepSeek CLI's process and thinking.
 
-- **When to include**: For documentation that Gemini CLI should reference while
+- **When to include**: For documentation that DeepSeek CLI should reference while
   working
 - **Examples**: `references/finance.md` for financial schemas,
   `references/mnda.md` for company NDA template, `references/policies.md` for
   company policies, `references/api_docs.md` for API specifications
 - **Use cases**: Database schemas, API documentation, domain knowledge, company
   policies, detailed workflow guides
-- **Benefits**: Keeps SKILL.md lean, loaded only when Gemini CLI determines it's
+- **Benefits**: Keeps SKILL.md lean, loaded only when DeepSeek CLI determines it's
   needed
 - **Best practice**: If files are large (>10k words), include grep search
   patterns in SKILL.md
@@ -133,7 +133,7 @@ context to inform Gemini CLI's process and thinking.
 ##### Assets (`assets/`)
 
 Files not intended to be loaded into context, but rather used within the output
-Gemini CLI produces.
+DeepSeek CLI produces.
 
 - **When to include**: When the skill needs files that will be used in the final
   output
@@ -168,7 +168,7 @@ Skills use a three-level loading system to manage context efficiently:
 
 1. **Metadata (name + description)** - Always in context (~100 words)
 2. **SKILL.md body** - When skill triggers (<5k words)
-3. **Bundled resources** - As needed by Gemini CLI (Unlimited because scripts
+3. **Bundled resources** - As needed by DeepSeek CLI (Unlimited because scripts
    can be executed without reading into context window)
 
 #### Progressive Disclosure Patterns
@@ -200,7 +200,7 @@ Extract text with pdfplumber: [code example]
 - **Examples**: See [EXAMPLES.md](EXAMPLES.md) for common patterns
 ```
 
-Gemini CLI loads FORMS.md, REFERENCE.md, or EXAMPLES.md only when needed.
+DeepSeek CLI loads FORMS.md, REFERENCE.md, or EXAMPLES.md only when needed.
 
 **Pattern 2: Domain-specific organization**
 
@@ -217,7 +217,7 @@ bigquery-skill/
     └── marketing.md (campaigns, attribution)
 ```
 
-When a user asks about sales metrics, Gemini CLI only reads sales.md.
+When a user asks about sales metrics, DeepSeek CLI only reads sales.md.
 
 Similarly, for skills supporting multiple frameworks or variants, organize by
 variant:
@@ -231,7 +231,7 @@ cloud-deploy/
     └── azure.md (Azure deployment patterns)
 ```
 
-When the user chooses AWS, Gemini CLI only reads aws.md.
+When the user chooses AWS, DeepSeek CLI only reads aws.md.
 
 **Pattern 3: Conditional details**
 
@@ -249,7 +249,7 @@ Use pandas for loading and basic queries. See [PANDAS.md](PANDAS.md).
 For massive files that exceed memory, see [STREAMING.md](STREAMING.md). For
 timestamp normalization, see [TIMESTAMPS.md](TIMESTAMPS.md).
 
-Gemini CLI reads REDLINING.md or OOXML.md only when the user needs those
+DeepSeek CLI reads REDLINING.md or OOXML.md only when the user needs those
 features.
 ```
 
@@ -258,7 +258,7 @@ features.
 - **Avoid deeply nested references** - Keep references one level deep from
   SKILL.md. All reference files should link directly from SKILL.md.
 - **Structure longer reference files** - For files longer than 100 lines,
-  include a table of contents at the top so Gemini CLI can see the full scope
+  include a table of contents at the top so DeepSeek CLI can see the full scope
   when previewing.
 
 ## Skill Creation Process
@@ -382,8 +382,8 @@ files as needed.
 ### Step 4: Edit the Skill
 
 When editing the (newly-generated or existing) skill, remember that the skill is
-being created for another instance of Gemini CLI to use. Include information
-that would be beneficial and non-obvious to Gemini CLI. Consider what procedural
+being created for another instance of DeepSeek CLI to use. Include information
+that would be beneficial and non-obvious to DeepSeek CLI. Consider what procedural
 knowledge, domain-specific details, or reusable assets would help another Gemini
 CLI instance execute these tasks more effectively.
 
@@ -425,16 +425,16 @@ Write the YAML frontmatter with `name` and `description`:
 
 - `name`: The skill name
 - `description`: This is the primary triggering mechanism for your skill, and
-  helps Gemini CLI understand when to use the skill.
+  helps DeepSeek CLI understand when to use the skill.
   - Include both what the Skill does and specific triggers/contexts for when to
     use it.
   - **Must be a single-line string** (e.g., `description: Data ingestion...`).
     Quotes are optional.
   - Include all "when to use" information here - Not in the body. The body is
     only loaded after triggering, so "When to Use This Skill" sections in the
-    body are not helpful to Gemini CLI.
+    body are not helpful to DeepSeek CLI.
   - Example:
-    `description: Data ingestion, cleaning, and transformation for tabular data. Use when Gemini CLI needs to work with CSV/TSV files to analyze large datasets, normalize schemas, or merge sources.`
+    `description: Data ingestion, cleaning, and transformation for tabular data. Use when DeepSeek CLI needs to work with CSV/TSV files to analyze large datasets, normalize schemas, or merge sources.`
 
 Do not include any other fields in YAML frontmatter.
 
@@ -503,7 +503,7 @@ CLI session to enable the new skill. They can then verify the installation by
 running `/skills list`.
 
 Note: You (the agent) cannot execute the `/skills reload` command yourself; it
-must be done by the user in an interactive instance of Gemini CLI. Do not
+must be done by the user in an interactive instance of DeepSeek CLI. Do not
 attempt to run it on their behalf.
 
 ### Step 7: Iterate

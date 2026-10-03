@@ -1,11 +1,11 @@
 ---
 name: tui-tester
-description: Expert guidance for testing Gemini CLI behavior and visual output using terminal automation.
+description: Expert guidance for testing DeepSeek CLI behavior and visual output using terminal automation.
 ---
 
 # TUI Tester Skill
 
-This skill provides the operational manual for verifying Gemini CLI behavioral changes and visual output using terminal automation.
+This skill provides the operational manual for verifying DeepSeek CLI behavioral changes and visual output using terminal automation.
 
 ## Core Responsibilities
 
@@ -39,7 +39,7 @@ agent-tui live start --open
 - **Atomic Execution**: Execute exactly one command per turn. Do not pipeline actions.
 - **The Loop**: Action -> Wait -> Screenshot -> Verify -> Next Action.
 
-### 4. Gemini CLI Specifics
+### 4. DeepSeek CLI Specifics
 - **Build First**: Always run `npm run build` or `npm run build:all` before testing local changes.
 - **Bypass Trust**: Set `GEMINI_CLI_TRUST_WORKSPACE=true` to avoid focus-stealing modals.
 - **Isolate Config**: Use `GEMINI_CLI_HOME` to prevent interference with your personal settings.

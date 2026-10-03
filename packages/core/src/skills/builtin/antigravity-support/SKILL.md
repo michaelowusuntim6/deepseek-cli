@@ -72,7 +72,7 @@ interactive TUI will guide you through:
 
 ## How to Migrate to Antigravity CLI
 
-If you are transitioning or migrating from another tool (such as Gemini CLI) to
+If you are transitioning or migrating from another tool (such as DeepSeek CLI) to
 Antigravity CLI, follow these steps:
 
 1. **Check Requirements:** Ensure your local environment meets standard

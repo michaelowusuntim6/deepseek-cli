@@ -24,7 +24,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { UserTierId, GeminiUserTier } from '../code_assist/types.js';
-import type { LlmRole } from '../telemetry/llmRole.js';
+import { LlmRole } from '../telemetry/llmRole.js';
 import { DeepSeekClient } from '../deepseek/client.js';
 import type { StreamPart } from '../deepseek/sse.js';
 
@@ -125,6 +125,39 @@ function flattenContents(request: GenerateContentParameters): string {
   return chunks.join('\n\n');
 }
 
+/** The newest user text in a request (used for follow-up turns). */
+function latestUserText(request: GenerateContentParameters): string {
+  const contents = (request.contents ?? []) as Array<{
+    role?: string;
+    parts?: Array<Record<string, unknown>>;
+  }>;
+  for (let i = contents.length - 1; i >= 0; i--) {
+    const content = contents[i];
+    if (content.role && content.role !== 'user') {
+      continue;
+    }
+    const texts: string[] = [];
+    for (const part of content.parts ?? []) {
+      const anyPart = part as {
+        text?: string;
+        functionResponse?: { name: string; response?: Record<string, unknown> };
+      };
+      if (typeof anyPart.text === 'string' && anyPart.text) {
+        texts.push(anyPart.text);
+      } else if (anyPart.functionResponse) {
+        texts.push(
+          `TOOL RESULT for ${anyPart.functionResponse.name}:\n` +
+            JSON.stringify(anyPart.functionResponse.response ?? {}),
+        );
+      }
+    }
+    if (texts.length) {
+      return texts.join('\n');
+    }
+  }
+  return '';
+}
+
 export interface DeepSeekContentGeneratorOptions {
   thinking?: boolean | undefined;
   search?: boolean | undefined;
@@ -172,6 +205,8 @@ export class DeepSeekContentGenerator implements ContentGenerator {
 
   private readonly client = new DeepSeekClient();
   private conversationId?: string;
+  private utilityConversationId?: string;
+  private requestCount = 0;
 
   constructor(
     private readonly config: Config,
@@ -186,11 +221,15 @@ export class DeepSeekContentGenerator implements ContentGenerator {
   private buildPrompt(request: GenerateContentParameters): string {
     const sections: string[] = [];
     const systemInstruction = request.config?.systemInstruction;
-    if (systemInstruction) {
+    // Fix 1: DeepSeek keeps the conversation server-side, so the system
+    // instruction and tool list go only on the FIRST request of a thread.
+    // Re-sending them made the web chat show the same preamble as a new user
+    // message on every turn.
+    if (systemInstruction && !this.conversationId) {
       sections.push(this.textOf(systemInstruction));
     }
     const tools = toolDeclarations(request);
-    if (tools) {
+    if (tools && !this.conversationId) {
       sections.push(
         'Available tools (call them with your native tool-call markup; ' +
           'DSML invoke blocks or <tool_call>{"name":..,"arguments":{..}}</tool_call> ' +
@@ -198,7 +237,13 @@ export class DeepSeekContentGenerator implements ContentGenerator {
           tools,
       );
     }
-    sections.push(flattenContents(request));
+    if (this.conversationId) {
+      // Follow-up turn: send only the newest user text (the thread already has
+      // the system instruction, the tools and the previous turns).
+      sections.push(latestUserText(request) || flattenContents(request));
+    } else {
+      sections.push(flattenContents(request));
+    }
     return sections.filter((section) => section && section.trim()).join('\n\n');
   }
 
@@ -255,14 +300,32 @@ export class DeepSeekContentGenerator implements ContentGenerator {
   private async *streamImpl(
     request: GenerateContentParameters,
     _userPromptId: string,
-    _role: LlmRole,
+    role: LlmRole,
   ): AsyncGenerator<GenerateContentResponse> {
-    const prompt = this.buildPrompt(request);
+    // Fix 1: side-channel calls (summarizer, compressor, router, ...) are not
+    // part of the conversation. Running them in their own DeepSeek thread keeps
+    // the user's chat free of tooling prompts and avoids re-sending the big
+    // system preamble. They never receive the system instruction or tool list.
+    const isUtility = role !== LlmRole.MAIN && role !== LlmRole.SUBAGENT;
+    const priorConversationId = isUtility
+      ? this.utilityConversationId
+      : this.conversationId;
+    const prompt = isUtility
+      ? latestUserText(request) || flattenContents(request)
+      : this.buildPrompt(request);
+    this.requestCount += 1;
+    if (process.env['DEBUG_DEEPSEEK']) {
+      // Fix 1 audit: exactly one of these per user turn.
+      console.error(
+        `[deepseek-request] turn=${this.requestCount} reason=${role} ` +
+          `prompt_chars=${prompt.length}`,
+      );
+    }
     const settings = readDeepSeekSettings();
     const thinking = this.options.thinking ?? settings.thinking;
     const search = this.options.search ?? settings.webSearch;
     const generator = this.client.streamParts(prompt, {
-      conversationId: this.conversationId,
+      conversationId: priorConversationId,
       thinking,
       search,
       modelType: this.options.modelType,
@@ -275,7 +338,11 @@ export class DeepSeekContentGenerator implements ContentGenerator {
       }
       result = await generator.next();
     }
-    this.conversationId = result.value.conversationId;
+    if (isUtility) {
+      this.utilityConversationId = result.value.conversationId;
+    } else {
+      this.conversationId = result.value.conversationId;
+    }
     yield makeResponse([], 'STOP');
   }
 

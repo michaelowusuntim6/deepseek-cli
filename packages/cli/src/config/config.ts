@@ -116,6 +116,10 @@ export interface CliArgs {
 /**
  * Helper to coerce comma-separated or multiple flag values into a flat array.
  */
+// Fix 7: the CLI may load its config more than once per process (e.g. once for
+// validation and once for the real run). Keep the YOLO notice to a single line.
+let yoloBannerPrinted = false;
+
 const coerceCommaSeparated = (values: string[]): string[] => {
   if (values.length === 1 && values[0] === '') {
     return [''];
@@ -764,9 +768,12 @@ export async function loadCliConfig(
       );
     }
   } else if (approvalMode === ApprovalMode.YOLO) {
-    debugLogger.warn(
-      'YOLO mode is enabled. All tool calls will be automatically approved.',
-    );
+    if (!yoloBannerPrinted) {
+      yoloBannerPrinted = true;
+      debugLogger.warn(
+        'YOLO mode is enabled. All tool calls will be automatically approved.',
+      );
+    }
   }
 
   // Force approval mode to default if the folder is not trusted.

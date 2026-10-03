@@ -1,7 +1,7 @@
 ---
 name: ci
 description:
-  A specialized skill for Gemini CLI that provides high-performance, fail-fast
+  A specialized skill for DeepSeek CLI that provides high-performance, fail-fast
   monitoring of GitHub Actions workflows and automated local verification of CI
   failures. It handles run discovery automatically—simply provide the branch name.
 ---
