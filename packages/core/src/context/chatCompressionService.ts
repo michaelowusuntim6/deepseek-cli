@@ -629,7 +629,7 @@ export class ChatCompressionService {
             role: 'user',
             parts: [
               {
-                text: 'Critically evaluate the <state_snapshot> you just generated. Did you omit any specific technical details, file paths, tool results, or user constraints mentioned in the history? If anything is missing or could be more precise, generate a FINAL, improved <state_snapshot>. Otherwise, repeat the exact same <state_snapshot> again.',
+                text: 'Critically evaluate the <state_snapshot> you just generated. Did you omit any specific technical details, file paths, tool results, or user constraints mentioned in the history? If anything is missing or could be more precise, generate a FINAL, improved <state_snapshot>. Otherwise, repeat the exact same <state_snapshot> again. Your reply MUST end with the complete <state_snapshot> XML, and its <task_state> element MUST contain the four fields current_objective, completed, in_progress and next_step.',
               },
             ],
           },

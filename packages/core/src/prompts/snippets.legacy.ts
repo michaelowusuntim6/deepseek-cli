@@ -791,6 +791,12 @@ The structure MUST be as follows:
          2. [IN PROGRESS] Implement OAuth2 flow. <-- CURRENT FOCUS
          3. [TODO] Add unit tests for the new flow.
         -->
+        <!-- REQUIRED: always include these four fields verbatim so a resumed
+             session knows exactly where to pick up. -->
+        <current_objective><!-- One sentence: what the user is trying to achieve right now. --></current_objective>
+        <completed><!-- Bulleted list of what has already been done. --></completed>
+        <in_progress><!-- What was happening at the moment compression fired. --></in_progress>
+        <next_step><!-- The single next action to take. --></next_step>
     </task_state>
 </state_snapshot>`.trim();
 }

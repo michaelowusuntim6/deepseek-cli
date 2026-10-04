@@ -30,6 +30,13 @@ import { deepseekSettingsFiles } from './generatorParts.js';
 export const DEEPSEEK_THINKING_MODES = ['off', 'on'] as const;
 export type DeepSeekThinkingMode = (typeof DEEPSEEK_THINKING_MODES)[number];
 
+/**
+ * DeepSeek CLI: maximum characters the model may produce within one user turn
+ * (responses + tool results). Beyond this the server tends to end the stream
+ * INCOMPLETE and the turn is lost, so we stop cleanly instead.
+ */
+export const TURN_OUTPUT_CHAR_BUDGET = 40_000;
+
 interface Part {
   text?: string;
   thought?: boolean;
@@ -212,6 +219,8 @@ export class DeepSeekContentGenerator implements ContentGenerator {
   private conversationId?: string;
   private utilityConversationId?: string;
   private requestCount = 0;
+  /** DeepSeek CLI: characters produced in the current user turn. */
+  private turnOutputChars = 0;
 
   constructor(
     private readonly config: Config,
@@ -391,6 +400,35 @@ export class DeepSeekContentGenerator implements ContentGenerator {
     const priorConversationId = isUtility
       ? this.utilityConversationId
       : this.conversationId;
+    // Turn budget: DeepSeek cuts a stream that grows too long, which loses the
+    // turn. Measure everything the model has produced plus every tool result
+    // fed back during this user turn, and stop the current response cleanly
+    // before the next request would blow past the stream limit.
+    const history = (request.contents ?? []) as Array<{
+      role?: string;
+      parts?: Array<Record<string, unknown>>;
+    }>;
+    const lastContent = history[history.length - 1];
+    const isToolContinuation = (lastContent?.parts ?? []).some(
+      (part) => 'functionResponse' in part,
+    );
+    if (!isToolContinuation) {
+      this.turnOutputChars = 0;
+    }
+    let budgetBaseline = 0;
+    const toolResultChars = history.reduce((total, content) => {
+      return (
+        total +
+        (content.parts ?? []).reduce((sub, part) => {
+          const fr = (
+            part as {
+              functionResponse?: { response?: unknown };
+            }
+          ).functionResponse;
+          return sub + (fr ? JSON.stringify(fr.response ?? {}).length : 0);
+        }, 0)
+      );
+    }, 0);
     // Utility calls (summarizer, compressor, router, ...) must see exactly
     // what the caller handed us — the whole contents array, including the
     // history they are asked to work on. They deliberately do NOT get the
@@ -470,6 +508,47 @@ export class DeepSeekContentGenerator implements ContentGenerator {
     let validCalls = 0;
     let rejectedNames: string[] = [];
     let sawBrokenMarkup = false;
+    let budgetContinuations = 0;
+    const maxBudgetContinuations = 8;
+    outer: for (;;) {
+      if (!isUtility) {
+        const turnChars = toolResultChars + this.turnOutputChars;
+        const sinceBaseline = turnChars - budgetBaseline;
+        if (process.env['DEBUG_DEEPSEEK']) {
+          console.error(
+            '[turn-budget] chars=%d threshold=%d',
+            sinceBaseline,
+            TURN_OUTPUT_CHAR_BUDGET,
+          );
+        }
+        if (sinceBaseline > TURN_OUTPUT_CHAR_BUDGET) {
+          console.error(
+            '[turn-budget] turn output exceeded %d chars, stopping cleanly. Model can continue next turn.',
+            TURN_OUTPUT_CHAR_BUDGET,
+          );
+          if (budgetContinuations >= maxBudgetContinuations) {
+            yield makeResponse([
+              {
+                text:
+                  'Turn budget reached (continuation limit). Continue with the ' +
+                  'next single step. Do not re-read files you have already read.',
+              },
+            ]);
+            yield makeResponse([], 'STOP');
+            return;
+          }
+          budgetContinuations += 1;
+          // Allow another full budget of progress before gating again.
+          budgetBaseline = turnChars;
+          // Tell the model what is happening and let it continue with the next
+          // single step instead of the server cutting the stream.
+          attemptPrompt =
+            'Turn budget reached. Continue with the next single step. ' +
+            'Do not re-read files you have already read.';
+          attemptConversationId = lastConversationId;
+          continue outer;
+        }
+      }
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const generator = this.client.streamParts(attemptPrompt, {
         conversationId: attemptConversationId,
@@ -505,6 +584,13 @@ export class DeepSeekContentGenerator implements ContentGenerator {
         }
         const parts = this.toParts(part);
         if (parts.length) {
+          if (!isUtility) {
+            for (const p of parts) {
+              if (typeof p.text === 'string') {
+                this.turnOutputChars += p.text.length;
+              }
+            }
+          }
           yield makeResponse(parts);
         }
         result = await generator.next();
@@ -543,6 +629,8 @@ export class DeepSeekContentGenerator implements ContentGenerator {
       attemptPrompt = this.correctionMessage([...knownTools]);
       attemptConversationId = lastConversationId;
     }
+    break;
+  }
     if (process.env['DEBUG_DEEPSEEK']) {
       console.error('[tool-call] retry_valid_calls=%d', validCalls);
     }

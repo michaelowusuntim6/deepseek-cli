@@ -29,6 +29,10 @@ import {
 import { convertToFunctionResponse } from '../utils/generateContentResponseUtilities.js';
 import { truncateToolOutput } from '../utils/tool-utils.js';
 import { MAX_STORED_TOOL_OUTPUT_BYTES } from '../utils/constants.js';
+
+/** DeepSeek CLI: hard cap applied to every tool result (see capToolOutput). */
+const MAX_TOOL_RESULT_LINES = 80;
+const MAX_TOOL_RESULT_CHARS = 8000;
 import {
   CoreToolCallStatus,
   type CompletedToolCall,
@@ -200,6 +204,100 @@ export class ToolExecutor {
   }
 
   private async truncateOutputIfNeeded(
+    call: ToolCall,
+    content: PartListUnion,
+  ): Promise<{ truncatedContent: PartListUnion; outputFile?: string }> {
+    const result = await this.truncateOutputIfNeededInner(call, content);
+    // DeepSeek CLI: apply a hard, universal cap to EVERY tool result. Long
+    // results (whole source files, unfiltered shell output) push a single model
+    // response past DeepSeek's stream limit, which ends the stream INCOMPLETE
+    // and loses the turn. This cap runs after the tool-specific truncation so
+    // it always wins.
+    return {
+      ...result,
+      truncatedContent: this.capToolOutput(
+        call.request.name,
+        result.truncatedContent,
+      ),
+    };
+  }
+
+  /**
+   * Cap a tool result at 80 lines / 8,000 characters (whichever comes first)
+   * and append a marker telling the model how to read more.
+   */
+  private capToolOutput(
+    toolName: string,
+    content: PartListUnion,
+  ): PartListUnion {
+    const text =
+      typeof content === 'string'
+        ? content
+        : Array.isArray(content)
+          ? content
+              .map((part) =>
+                typeof part === 'object' && part !== null && 'text' in part
+                  ? String((part as { text?: string }).text ?? '')
+                  : '',
+              )
+              .join('')
+          : '';
+    if (!text || text.startsWith('[OUTPUT TRUNCATED')) {
+      return content;
+    }
+    const totalChars = text.length;
+    const allLines = text.split('\n');
+    const totalLines = allLines.length;
+    const overChars = totalChars > MAX_TOOL_RESULT_CHARS;
+    const overLines = totalLines > MAX_TOOL_RESULT_LINES;
+    if (!overChars && !overLines) {
+      return content;
+    }
+
+    const fmt = (n: number) => n.toLocaleString('en-US');
+    // Whichever limit is hit first wins, for every tool.
+    const byChars = (): string => {
+      const slice = text.slice(0, MAX_TOOL_RESULT_CHARS);
+      const cutLine = slice.lastIndexOf('\n');
+      return cutLine > 0 ? slice.slice(0, cutLine) : slice;
+    };
+    const byLines = (): string =>
+      allLines.slice(0, MAX_TOOL_RESULT_LINES).join('\n');
+
+    let capped: string;
+    if (overChars && overLines) {
+      const charCapped = byChars();
+      const lineCapped = byLines();
+      capped =
+        charCapped.length <= lineCapped.length ? charCapped : lineCapped;
+    } else if (overLines) {
+      capped = byLines();
+    } else {
+      capped = byChars();
+    }
+    const shownLines = capped.split('\n').length;
+    const marker =
+      toolName === SHELL_TOOL_NAME
+        ? `\n[OUTPUT TRUNCATED: shown ${fmt(capped.length)} of ${fmt(totalChars)} chars. ` +
+          'Re-run the command with a narrower filter (e.g. `head -50` or `grep`).]'
+        : `\n[OUTPUT TRUNCATED: showing lines 1-${shownLines} of ${totalLines} total ` +
+          `(${fmt(capped.length)} of ${fmt(totalChars)} chars). To read more, call read_file with ` +
+          `start_line=${shownLines + 1} end_line=${shownLines + MAX_TOOL_RESULT_LINES}.]`;
+
+    if (process.env['DEBUG_DEEPSEEK']) {
+      console.error(
+        '[tool-cap] tool=%s lines=%d->%d chars=%d->%d',
+        toolName,
+        totalLines,
+        capped.split('\n').length,
+        totalChars,
+        capped.length,
+      );
+    }
+    return `${capped}${marker}`;
+  }
+
+  private async truncateOutputIfNeededInner(
     call: ToolCall,
     content: PartListUnion,
   ): Promise<{ truncatedContent: PartListUnion; outputFile?: string }> {
