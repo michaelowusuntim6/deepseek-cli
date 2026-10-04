@@ -51,10 +51,13 @@ const CLOSE_TAG = '</tool_call>';
 const BAR = '\uFF5C\uFF5C';
 const DSML_CALLS_OPEN = `<${BAR}DSML${BAR} calls>`;
 const DSML_CALLS_CLOSE = `</${BAR}DSML${BAR} calls>`;
-// Tag bodies are accepted with or without the fullwidth `｜｜DSML｜｜` prefix:
-// DeepSeek sometimes emits the compact form (`<invoke name="x">`,
-// `<parameter name="y">`) inside an otherwise-qualified block.
-const DSML_TAG_PREFIX = `(?:${BAR}DSML${BAR} )?`;
+// DeepSeek's markup is messy: the pipe count varies (｜DSML｜ vs ｜｜DSML｜｜),
+// the prefix is sometimes missing entirely, and the model frequently writes a
+// stray `/` in front of an *opening* tag. Accept all of it.
+const FW = '\uFF5C';
+const PIPE = `[${FW}|]`;
+const DSML_NAMESPACE = `${PIPE}{1,2}DSML${PIPE}{1,2}\\s*`;
+const DSML_TAG_PREFIX = `(?:\\/?${DSML_NAMESPACE})?`;
 const DSML_INVOKE_OPEN_RE = new RegExp(
   `<${DSML_TAG_PREFIX}invoke\\s+name="([^"]+)">`,
   'g',
@@ -92,32 +95,40 @@ function findCloseTag(
   return m ? { index: m.index, length: m[0].length } : null;
 }
 
-function countMatches(re: RegExp, text: string): number {
-  const global = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
-  let count = 0;
-  while (global.exec(text) !== null) {
-    count += 1;
-  }
-  return count;
-}
 /**
  * Any DSML marker: the wrapper open tag or an invoke open tag. Used to decide
  * where a DSML region starts regardless of how (mis)ordered the wrapper tags
  * are — the model sometimes emits duplicated/out-of-order `<calls>` tags.
  */
 const DSML_MARKER_RE = new RegExp(
-  `<${BAR}DSML${BAR}\\s*(?:calls>|invoke\\s+name=)`,
+  `<${DSML_TAG_PREFIX}(?:calls[^>]*>|invoke\\s+name=)`,
 );
 /** Longest prefix we may need to buffer when a marker is split across chunks. */
 const DSML_MARKER_TAIL = 32;
-/** Stray wrapper tags that carry no information once invokes are extracted. */
-const DSML_WRAPPER_RE = new RegExp(
-  `</?${BAR}DSML${BAR}\\s*calls>`,
+/**
+ * Stray DSML scaffolding left in the visible stream once invokes have been
+ * extracted: wrapper tags and any orphan invoke/parameter tags (including the
+ * malformed `</invoke name="...">` form). None of it is prose.
+ */
+const DSML_SCAFFOLDING_RE = new RegExp(
+  `</?(?:\\/?${DSML_NAMESPACE})?calls\\b[^>]*>` +
+    `|</(?:\\/?${DSML_NAMESPACE})?(?:invoke|parameter)\\b[^>]*>`,
+  'g',
+);
+/** `<calls>` / `</calls>` (qualified). Safe to strip before parsing. */
+const DSML_CALLS_TAG_RE = new RegExp(
+  `</?(?:\\/?${DSML_NAMESPACE})?calls[^>]*>`,
   'g',
 );
 
+/** Wrapper tags only — safe to strip before parsing (invokes stay intact). */
 function stripDsmlWrapperTags(text: string): string {
-  return text.replace(DSML_WRAPPER_RE, '');
+  return text.replace(DSML_CALLS_TAG_RE, '');
+}
+
+/** All DSML scaffolding — used when emitting visible prose, not when parsing. */
+function stripDsmlScaffolding(text: string): string {
+  return text.replace(DSML_SCAFFOLDING_RE, '');
 }
 
 /**
@@ -133,35 +144,50 @@ function stripDsmlWrapperTags(text: string): string {
  * stops at that point instead of inventing a close.
  */
 export function dsmlCallsToJson(text: string): ParsedToolCall[] {
+  // 1. Wrapper tags are noise. Strip every calls tag — zero, one or several.
+  const source = stripDsmlWrapperTags(text);
   const calls: ParsedToolCall[] = [];
   let cursor = 0;
   while (true) {
+    // 2. Find every named invoke opener.
     DSML_INVOKE_OPEN_RE.lastIndex = cursor;
-    const invokeMatch = DSML_INVOKE_OPEN_RE.exec(text);
+    const invokeMatch = DSML_INVOKE_OPEN_RE.exec(source);
     if (!invokeMatch) {
       break;
     }
     const name = invokeMatch[1];
     const bodyStart = invokeMatch.index + invokeMatch[0].length;
-    // An invoke may contain nested invoke blocks (DeepSeek encodes arguments
-    // that way sometimes). Keep extending to the next closing tag until the
-    // nesting balances, so the outer body is not truncated at a nested close.
-    let bodyClose = findCloseTag(DSML_INVOKE_CLOSE_RE, text, bodyStart);
-    while (bodyClose) {
-      const candidate = text.slice(bodyStart, bodyClose.index);
-      if (countMatches(DSML_INVOKE_OPEN_RE, candidate) <= countMatches(DSML_INVOKE_CLOSE_RE, candidate)) {
+    // 3. Match the close with a nesting counter so nested invoke blocks
+    //    (malformed parameters) do not truncate the outer body.
+    let depth = 0;
+    let scan = bodyStart;
+    let bodyEnd = -1;
+    let closeLen = 0;
+    while (scan < source.length) {
+      const nextOpen = findCloseTag(DSML_INVOKE_OPEN_RE, source, scan);
+      const nextClose = findCloseTag(DSML_INVOKE_CLOSE_RE, source, scan);
+      if (!nextClose) {
         break;
       }
-      bodyClose = findCloseTag(
-        DSML_INVOKE_CLOSE_RE,
-        text,
-        bodyClose.index + bodyClose.length,
-      );
+      if (nextOpen && nextOpen.index < nextClose.index) {
+        depth += 1;
+        scan = nextOpen.index + nextOpen.length;
+        continue;
+      }
+      if (depth === 0) {
+        bodyEnd = nextClose.index;
+        closeLen = nextClose.length;
+        break;
+      }
+      depth -= 1;
+      scan = nextClose.index + nextClose.length;
     }
-    if (!bodyClose) {
-      break; // incomplete invoke: stop, do not invent a close
+    if (bodyEnd === -1) {
+      // Incomplete invoke: skip it and keep scanning (earlier calls survive).
+      cursor = bodyStart;
+      continue;
     }
-    const invokeBody = text.slice(bodyStart, bodyClose.index);
+    const invokeBody = source.slice(bodyStart, bodyEnd);
     const args: Record<string, unknown> = {};
     let paramCursor = 0;
     while (true) {
@@ -210,9 +236,23 @@ export function dsmlCallsToJson(text: string): ParsedToolCall[] {
       arguments: args,
       raw: JSON.stringify({ name, arguments: args }),
     });
-    cursor = bodyClose.index + bodyClose.length;
+    cursor = bodyEnd + closeLen;
   }
   return calls;
+}
+
+/**
+ * True when the text looks like a (possibly malformed) DSML tool-call attempt.
+ * Used to decide whether a response with no valid calls should be retried.
+ */
+export function looksLikeBrokenToolCall(text: string): boolean {
+  return (
+    text.includes(FW) ||
+    new RegExp(
+      `<\\/?\\s*(?:\\/?${DSML_NAMESPACE})?(?:invoke|parameter|calls)\\b`,
+    ).test(text) ||
+    text.includes('</parameter>')
+  );
 }
 
 /**
@@ -446,7 +486,7 @@ export class SseFragmentParser {
           const emitLen = safeLen - keep;
           // Drop stray/misordered DSML wrapper tags so the model's malformed
           // `<calls>` noise never shows up as visible answer text.
-          const emitText = stripDsmlWrapperTags(
+          const emitText = stripDsmlScaffolding(
             combined.slice(pos, pos + emitLen),
           );
           if (emitText) {
@@ -505,7 +545,7 @@ export class SseFragmentParser {
         break;
       }
       const markerIdx = cursor + relIdx;
-      const before = stripDsmlWrapperTags(buffer.slice(cursor, markerIdx));
+      const before = stripDsmlScaffolding(buffer.slice(cursor, markerIdx));
       if (before) {
         parts.push({ kind: textKind, text: before });
       }
@@ -539,7 +579,7 @@ export class SseFragmentParser {
       cursor = bodyClose.index + bodyClose.length;
     }
 
-    const tail = stripDsmlWrapperTags(buffer.slice(cursor));
+    const tail = stripDsmlScaffolding(buffer.slice(cursor));
     if (tail.length > DSML_MARKER_TAIL) {
       parts.push({
         kind: textKind,
@@ -763,7 +803,7 @@ export class SseFragmentParser {
       const raw = this.stripFinished
         ? this.answerBuffer.replace(/^\s*FINISHED/, '')
         : this.answerBuffer;
-      const text = stripDsmlWrapperTags(raw);
+      const text = stripDsmlScaffolding(raw);
       if (text) {
         out.push({ kind: 'answer', text });
       }
@@ -776,7 +816,7 @@ export class SseFragmentParser {
       // thinking text, so keep it.
       DSML_INVOKE_OPEN_RE.lastIndex = 0;
       if (!DSML_INVOKE_OPEN_RE.test(remaining)) {
-        const text = stripDsmlWrapperTags(remaining);
+        const text = stripDsmlScaffolding(remaining);
         if (text) {
           out.push({ kind: 'thinking', text });
         }

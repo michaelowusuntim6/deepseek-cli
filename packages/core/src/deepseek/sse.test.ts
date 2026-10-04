@@ -5,7 +5,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { SseFragmentParser, dsmlCallsToJson } from './sse.js';
+import {
+  SseFragmentParser,
+  dsmlCallsToJson,
+  looksLikeBrokenToolCall,
+} from './sse.js';
 
 const BAR = '\uFF5C\uFF5C';
 const CALLS_OPEN = `<${BAR}DSML${BAR} calls>`;
@@ -59,6 +63,61 @@ describe('dsmlCallsToJson', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0].name).toBe('read_file');
     expect(calls[0].arguments['file_path']).toBe('/tmp/x.txt');
+  });
+
+  it('SHAPE A: no <calls> opener, stray </invoke>, nested invoke params', () => {
+    const shapeA = [
+      INVOKE('summary', 'text'),
+      `</${BAR}DSML${BAR} invoke>`,
+      `<${BAR}DSML${BAR} invoke name="run_shell_command">`,
+      `<${BAR}DSML${BAR} invoke name="command">ls -la</${BAR}DSML${BAR} invoke>`,
+      `</${BAR}DSML${BAR} invoke>`,
+      `</${BAR}DSML${BAR} calls>`,
+    ].join('\n');
+    const calls = dsmlCallsToJson(shapeA);
+    expect(calls.map((c) => c.name)).toContain('run_shell_command');
+    const shell = calls.find((c) => c.name === 'run_shell_command');
+    expect(shell?.arguments['command']).toBe('ls -la');
+  });
+
+  it('SHAPE B: no named opener -> zero calls, broken flag true', () => {
+    const shapeB = [
+      `</${BAR}DSML${BAR} invoke>`,
+      `</${BAR}DSML${BAR} invoke name="run_shell_command">`,
+      `<${BAR}DSML${BAR} invoke>`,
+    ].join('\n');
+    expect(dsmlCallsToJson(shapeB)).toHaveLength(0);
+    expect(looksLikeBrokenToolCall(shapeB)).toBe(true);
+  });
+
+  it('SHAPE C: well-formed multi-invoke batch -> 2 calls', () => {
+    const shapeC = `${CALLS_OPEN}\n${INVOKE(
+      'read_file',
+      PARAM('path', '/a'),
+    )}\n${INVOKE(
+      'run_shell_command',
+      PARAM('command', 'ls'),
+    )}\n${CALLS_CLOSE}`;
+    const calls = dsmlCallsToJson(shapeC);
+    expect(calls).toHaveLength(2);
+    expect(calls[0].arguments['path']).toBe('/a');
+    expect(calls[1].arguments['command']).toBe('ls');
+  });
+
+  it('tolerates single-bar namespaces and stray slashes on openers', () => {
+    // Shapes observed live: `</｜DSML｜｜ invoke name="X">` as the OPENER and
+    // `</｜DSML｜｜ parameter ...>` as a parameter opener; one pipe instead of two.
+    const fw = '\uFF5C';
+    const messy = [
+      `</${fw}DSML${fw}${fw} invoke name="run_shell_command">`,
+      `</${fw}DSML${fw}${fw} parameter name="command" string="true">ls -la /tmp</${fw}DSML${fw}${fw} parameter>`,
+      `</${fw}DSML${fw}${fw} invoke>`,
+      `</${fw}DSML${fw}${fw} calls>`,
+    ].join('\n');
+    const calls = dsmlCallsToJson(messy);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].name).toBe('run_shell_command');
+    expect(calls[0].arguments['command']).toBe('ls -la /tmp');
   });
 });
 

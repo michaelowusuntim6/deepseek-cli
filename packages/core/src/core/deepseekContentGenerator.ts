@@ -21,12 +21,11 @@ import type {
 } from '@google/genai';
 import type { Config } from '../config/config.js';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
 import type { UserTierId, GeminiUserTier } from '../code_assist/types.js';
 import { LlmRole } from '../telemetry/llmRole.js';
 import { DeepSeekClient } from '../deepseek/client.js';
-import type { StreamPart } from '../deepseek/sse.js';
+import { looksLikeBrokenToolCall, type StreamPart } from '../deepseek/sse.js';
+import { deepseekSettingsFiles } from './generatorParts.js';
 
 export const DEEPSEEK_THINKING_MODES = ['off', 'on'] as const;
 export type DeepSeekThinkingMode = (typeof DEEPSEEK_THINKING_MODES)[number];
@@ -105,11 +104,20 @@ function flattenContents(request: GenerateContentParameters): string {
       if (typeof anyPart.text === 'string' && anyPart.text) {
         texts.push(anyPart.text);
       } else if (anyPart.functionCall) {
+        // Echo previous calls back in DSML: the model must only ever see the
+        // format we want it to emit.
+        const B = '\uFF5C\uFF5C';
+        const params = Object.entries(anyPart.functionCall.args ?? {})
+          .map(
+            ([key, value]) =>
+              `<${B}DSML${B} parameter name="${key}" string="true">${
+                typeof value === 'string' ? value : JSON.stringify(value)
+              }</${B}DSML${B} parameter>`,
+          )
+          .join('\n');
         texts.push(
-          `<tool_call>${JSON.stringify({
-            name: anyPart.functionCall.name,
-            arguments: anyPart.functionCall.args ?? {},
-          })}</tool_call>`,
+          `<${B}DSML${B} calls>\n<${B}DSML${B} invoke name="${anyPart.functionCall.name}">\n` +
+            `${params}\n</${B}DSML${B} invoke>\n</${B}DSML${B} calls>`,
         );
       } else if (anyPart.functionResponse) {
         texts.push(
@@ -174,10 +182,7 @@ export function readDeepSeekSettings(): {
   webSearch: boolean;
 } {
   const merged: Record<string, unknown> = {};
-  for (const file of [
-    path.join(process.cwd(), '.gemini', 'settings.json'),
-    path.join(os.homedir(), '.gemini', 'settings.json'),
-  ]) {
+  for (const file of deepseekSettingsFiles()) {
     try {
       Object.assign(merged, JSON.parse(fs.readFileSync(file, 'utf-8')));
     } catch {
@@ -232,18 +237,23 @@ export class DeepSeekContentGenerator implements ContentGenerator {
     if (tools && !this.conversationId) {
       const BAR = '\uFF5C\uFF5C';
       sections.push(
-        'Available tools (call them with your native tool-call markup; ' +
-          'DSML invoke blocks or <tool_call>{"name":..,"arguments":{..}}</tool_call> ' +
-          'are both accepted):\n' +
-          'When you call multiple tools, wrap them in exactly ONE pair of ' +
-          `calls tags, with one invoke per tool and nothing else between them:\n` +
+        'Available tools:\n' +
+          tools +
+          '\n\n## Tool calls\n\n' +
+          'Emit tool calls in DSML. Format:\n\n' +
           `<${BAR}DSML${BAR} calls>\n` +
-          `<${BAR}DSML${BAR} invoke name="tool_one"> ... </${BAR}DSML${BAR} invoke>\n` +
-          `<${BAR}DSML${BAR} invoke name="tool_two"> ... </${BAR}DSML${BAR} invoke>\n` +
-          `</${BAR}DSML${BAR} calls>\n` +
-          'Do not emit multiple calls wrappers. Do not put calls tags inside ' +
-          'an invoke. One wrapper, N invokes, nothing else.\n' +
-          tools,
+          `<${BAR}DSML${BAR} invoke name="tool_name">\n` +
+          `<${BAR}DSML${BAR} parameter name="arg_name" string="true">value</${BAR}DSML${BAR} parameter>\n` +
+          `</${BAR}DSML${BAR} invoke>\n` +
+          `</${BAR}DSML${BAR} calls>\n\n` +
+          'Rules:\n' +
+          '  - Always wrap the batch in ONE calls block.\n' +
+          '  - Each tool is one invoke element.\n' +
+          '  - Each argument is one parameter element.\n' +
+          '  - Do NOT nest invoke inside invoke. Parameters are parameter elements, not invoke.\n' +
+          '  - Do NOT invent tool names. Only use the names listed above.\n' +
+          '  - Do NOT mix JSON and DSML. Pick DSML and stay with it.\n' +
+          '  - If you have nothing to call, respond with text only. Do not emit empty DSML blocks.',
       );
     }
     if (this.conversationId) {
@@ -268,6 +278,34 @@ export class DeepSeekContentGenerator implements ContentGenerator {
         .join('');
     }
     return '';
+  }
+
+  /** Tool name from a parsed tool-call part (`{name, arguments}`). */
+  private toolCallName(text: string): string {
+    try {
+      return (JSON.parse(text) as { name?: string }).name ?? '';
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * One-shot corrective message sent when the model emitted malformed DSML.
+   * Keeps the model on DSML and lists the only tool names it may use.
+   */
+  private correctionMessage(toolNames: string[]): string {
+    const B = '\uFF5C\uFF5C';
+    return (
+      'Your previous response contained malformed tool-call markup. ' +
+      'Re-emit the tool call now in this exact format and nothing else:\n\n' +
+      `<${B}DSML${B} calls>\n` +
+      `<${B}DSML${B} invoke name="tool_name">\n` +
+      `<${B}DSML${B} parameter name="arg" string="true">value</${B}DSML${B} parameter>\n` +
+      `</${B}DSML${B} invoke>\n` +
+      `</${B}DSML${B} calls>\n\n` +
+      `Use only these tools: ${toolNames.join(', ')}.\n\n` +
+      `No JSON. No ${'<tool_call>'}. No extra closing tags. No nested invoke.`
+    );
   }
 
   private toParts(part: StreamPart): Part[] {
@@ -406,32 +444,96 @@ export class DeepSeekContentGenerator implements ContentGenerator {
       }
       search = false;
     }
-    const generator = this.client.streamParts(prompt, {
-      conversationId: priorConversationId,
-      thinking,
-      search,
-      modelType: this.options.modelType,
-    });
     let thinkFragments = 0;
     let responseFragments = 0;
-    let result = await generator.next();
-    while (!result.done) {
-      if (result.value.kind === 'thinking') {
-        thinkFragments += 1;
-      } else if (result.value.kind === 'answer') {
-        responseFragments += 1;
+    const knownTools = new Set<string>(
+      this.config.getToolRegistry?.()?.getAllToolNames?.() ?? [],
+    );
+    const maxAttempts = 2;
+    let attemptPrompt = prompt;
+    let attemptConversationId = priorConversationId;
+    let lastConversationId = priorConversationId;
+    let streamFinished = false;
+    let validCalls = 0;
+    let rejectedNames: string[] = [];
+    let sawBrokenMarkup = false;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const generator = this.client.streamParts(attemptPrompt, {
+        conversationId: attemptConversationId,
+        thinking,
+        search,
+        modelType: this.options.modelType,
+      });
+      validCalls = 0;
+      rejectedNames = [];
+      let rawText = '';
+      let result = await generator.next();
+      while (!result.done) {
+        const part = result.value;
+        if (part.kind === 'thinking') {
+          thinkFragments += 1;
+        } else if (part.kind === 'answer') {
+          responseFragments += 1;
+          rawText += part.text;
+        } else if (part.kind === 'tool_call') {
+          rawText += part.text;
+          const name = this.toolCallName(part.text);
+          if (knownTools.size > 0 && name && !knownTools.has(name)) {
+            // Hallucinated tool name: never execute it. Remember it so the
+            // batch can be retried with an explicit correction.
+            rejectedNames.push(name);
+            result = await generator.next();
+            continue;
+          }
+          validCalls += 1;
+          if (process.env['DEBUG_DEEPSEEK']) {
+            console.error(`[deepseek-tool-call] ${part.text}`);
+          }
+        }
+        const parts = this.toParts(part);
+        if (parts.length) {
+          yield makeResponse(parts);
+        }
+        result = await generator.next();
       }
-      if (process.env['DEBUG_DEEPSEEK'] && result.value.kind === 'tool_call') {
-        // Fix 1 audit: shows the exact parameter names DeepSeek emitted.
-        console.error(`[deepseek-tool-call] ${result.value.text}`);
+      streamFinished = result.value.finished;
+      lastConversationId = result.value.conversationId;
+      if (rejectedNames.length > 0 && process.env['DEBUG_DEEPSEEK']) {
+        console.error(
+          '[tool-call] rejected unknown tools: %s',
+          rejectedNames.join(', '),
+        );
       }
-      const parts = this.toParts(result.value);
-      if (parts.length) {
-        yield makeResponse(parts);
+      const broken =
+        validCalls === 0 &&
+        (rejectedNames.length > 0 || looksLikeBrokenToolCall(rawText));
+      if (!broken) {
+        break;
       }
-      result = await generator.next();
+      sawBrokenMarkup = true;
+      if (attempt === maxAttempts - 1) {
+        // Retry already happened and the markup is still broken: save the raw
+        // output, tell the user how to continue, and end the turn cleanly.
+        const rawPath = `/tmp/broken_tool_call_${Date.now()}.txt`;
+        try {
+          fs.writeFileSync(rawPath, rawText, 'utf-8');
+          console.error(`[tool-call] retry failed. Raw output saved to ${rawPath}.`);
+          console.error('[tool-call] type continue to try once more');
+        } catch (error) {
+          console.error('[tool-call] retry failed.', error);
+        }
+        break;
+      }
+      if (process.env['DEBUG_DEEPSEEK']) {
+        console.error('[tool-call] broken_markup retrying once');
+      }
+      attemptPrompt = this.correctionMessage([...knownTools]);
+      attemptConversationId = lastConversationId;
     }
-    const streamFinished = result.value.finished;
+    if (process.env['DEBUG_DEEPSEEK']) {
+      console.error('[tool-call] retry_valid_calls=%d', validCalls);
+    }
+    void sawBrokenMarkup;
     if (process.env['DEBUG_DEEPSEEK']) {
       console.error(
         '[deepseek-stream] finished=%s think_fragments=%d response_fragments=%d',
@@ -441,9 +543,9 @@ export class DeepSeekContentGenerator implements ContentGenerator {
       );
     }
     if (isUtility) {
-      this.utilityConversationId = result.value.conversationId;
+      this.utilityConversationId = lastConversationId;
     } else {
-      this.conversationId = result.value.conversationId;
+      this.conversationId = lastConversationId;
     }
     // Bug 1: only a FINISHED stream is a completed turn. When DeepSeek ends the
     // stream INCOMPLETE (server-side generation error) we must NOT hand the
