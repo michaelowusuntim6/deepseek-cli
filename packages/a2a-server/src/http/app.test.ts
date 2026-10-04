@@ -9,7 +9,7 @@ import {
   ApprovalMode,
   type Config,
   type ToolCallConfirmationDetails,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import type {
   TaskStatusUpdateEvent,
   SendStreamingMessageSuccessResponse,
@@ -36,7 +36,7 @@ import {
   createMockConfig,
 } from '../utils/testing_utils.js';
 // Import MockTool from specific path to avoid vitest dependency in main core bundle
-import { MockTool } from '@google/gemini-cli-core/src/test-utils/mock-tool.js';
+import { MockTool } from 'deepseek-cli-core/src/test-utils/mock-tool.js';
 import type { Command, CommandContext } from '../commands/types.js';
 
 const mockToolConfirmationFn = async () =>
@@ -94,8 +94,8 @@ vi.mock('../config/config.js', async () => {
 
 // Mock the GeminiClient to avoid actual API calls
 const sendMessageStreamSpy = vi.fn();
-vi.mock('@google/gemini-cli-core', async () => {
-  const actual = await vi.importActual('@google/gemini-cli-core');
+vi.mock('deepseek-cli-core', async () => {
+  const actual = await vi.importActual('deepseek-cli-core');
   return {
     ...actual,
     GeminiClient: vi.fn().mockImplementation(() => ({
@@ -1267,7 +1267,7 @@ describe('E2E Tests', () => {
   describe('createApp V2 settings compatibility', () => {
     it('should read V2 security.folderTrust.enabled from loadSettings during app initialization', async () => {
       const settingsMod = await import('../config/settings.js');
-      const coreMod = await import('@google/gemini-cli-core');
+      const coreMod = await import('deepseek-cli-core');
       const configMod = await import('../config/config.js');
 
       const loadSettingsSpy = vi

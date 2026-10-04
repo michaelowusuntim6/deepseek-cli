@@ -5,7 +5,7 @@
  */
 
 import * as fs from 'node:fs';
-import { debugLogger, isNodeError } from '@google/gemini-cli-core';
+import { debugLogger, isNodeError } from 'deepseek-cli-core';
 
 export interface RetryOptions {
   maxRetries?: number;

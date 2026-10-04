@@ -54,7 +54,7 @@ const PTY_ORPHAN_FD_SEARCH_RANGE = 8;
 /**
  * An environment variable that is set for shell executions. This can be used
  * by downstream executables and scripts to identify that they were executed
- * from within Gemini CLI.
+ * from within DeepSeek CLI.
  */
 export const GEMINI_CLI_IDENTIFICATION_ENV_VAR = 'GEMINI_CLI';
 

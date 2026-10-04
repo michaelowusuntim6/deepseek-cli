@@ -6,7 +6,7 @@
 
 import { renderWithProviders } from '../../test-utils/render.js';
 import { createMockSettings } from '../../test-utils/settings.js';
-import { makeFakeConfig, CoreToolCallStatus } from '@google/gemini-cli-core';
+import { makeFakeConfig, CoreToolCallStatus } from 'deepseek-cli-core';
 import { waitFor } from '../../test-utils/async.js';
 import { MainContent } from './MainContent.js';
 import { Composer } from './Composer.js';
@@ -26,9 +26,9 @@ const scrollableListMocks = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock('@google/gemini-cli-core', async (importOriginal) => {
+vi.mock('deepseek-cli-core', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('@google/gemini-cli-core')>();
+    await importOriginal<typeof import('deepseek-cli-core')>();
   return {
     ...actual,
     validatePlanPath: vi
@@ -663,7 +663,7 @@ describe('MainContent', () => {
 
   it('renders a ToolConfirmationQueue without an extra line when preceded by hidden tools', async () => {
     const { ApprovalMode, WRITE_FILE_DISPLAY_NAME } = await import(
-      '@google/gemini-cli-core'
+      'deepseek-cli-core'
     );
     const hiddenToolCalls = [
       {
@@ -741,7 +741,7 @@ describe('MainContent', () => {
 
   it('renders a spurious line when a tool group has only hidden tools and borderBottom true', async () => {
     const { ApprovalMode, WRITE_FILE_DISPLAY_NAME } = await import(
-      '@google/gemini-cli-core'
+      'deepseek-cli-core'
     );
     const uiState = {
       ...defaultMockUiState,

@@ -21,7 +21,7 @@ vi.mock('../utils/path_utils.js', () => ({
 }));
 
 // Mocks for constructor dependencies
-vi.mock('@google/gemini-cli-core', () => ({
+vi.mock('deepseek-cli-core', () => ({
   GeminiEventType: {
     PRIMARY_TURN_STARTED: 'PRIMARY_TURN_STARTED',
     SECONDARY_TURN_STARTED: 'SECONDARY_TURN_STARTED',

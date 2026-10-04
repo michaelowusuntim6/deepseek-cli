@@ -5,8 +5,8 @@
  */
 
 import { vi } from 'vitest';
-import { NoopSandboxManager } from '@google/gemini-cli-core';
-import type { Config } from '@google/gemini-cli-core';
+import { NoopSandboxManager } from 'deepseek-cli-core';
+import type { Config } from 'deepseek-cli-core';
 import {
   createTestMergedSettings,
   type LoadedSettings,

@@ -19,7 +19,7 @@ import {
   clearCachedCredentialFile,
   type Config,
   debugLogger,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import { useKeypress } from '../hooks/useKeypress.js';
 import { AuthState } from '../types.js';
 import { validateAuthMethodWithSettings } from './useAuth.js';

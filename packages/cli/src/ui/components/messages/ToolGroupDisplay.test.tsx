@@ -11,7 +11,7 @@ import { ToolGroupDisplay } from './ToolGroupDisplay.js';
 import {
   CoreToolCallStatus,
   UPDATE_TOPIC_DISPLAY_NAME,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import type {
   HistoryItemToolDisplayGroup,
   ToolDisplayItem,

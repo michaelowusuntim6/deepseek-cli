@@ -6,7 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { setupUnhandledRejectionHandler } from './gemini.js';
-import { debugLogger } from '@google/gemini-cli-core';
+import { debugLogger } from 'deepseek-cli-core';
 
 vi.mock('./utils/cleanup.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./utils/cleanup.js')>();

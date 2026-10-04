@@ -18,13 +18,14 @@ import {
   Storage,
   coreEvents,
   homedir,
+  migrateLegacyAppDir,
   AuthType,
   type AdminControlsSettings,
   createCache,
   isFileAndDirectorySecureSync,
   createPathSecurityCache,
   debugLogger,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/builtin/light/default-light.js';
 import { DefaultDark } from '../ui/themes/builtin/dark/default-dark.js';
@@ -779,6 +780,9 @@ export function isWorktreeEnabled(settings: LoadedSettings): boolean {
 export function loadSettings(
   workspaceDir: string = process.cwd(),
 ): LoadedSettings {
+  // DeepSeek CLI: copy ~/.gemini/ to ~/.deepseek/ on first launch so existing
+  // settings, sessions and skills are preserved.
+  migrateLegacyAppDir();
   const normalizedWorkspaceDir = path.resolve(workspaceDir);
   return settingsCache.getOrCreate(normalizedWorkspaceDir, () =>
     _doLoadSettings(normalizedWorkspaceDir),

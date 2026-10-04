@@ -12,7 +12,7 @@ import {
   escapeShellArg,
   isWindows,
   type ShellType,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 
 interface SessionSummaryDisplayProps {
   duration: string;

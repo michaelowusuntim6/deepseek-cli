@@ -9,7 +9,7 @@ import type {
   ToolCallRequestInfo,
   ResumedSessionData,
   UserFeedbackPayload,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import { isSlashCommand } from './ui/utils/commandUtils.js';
 import type { LoadedSettings } from './config/settings.js';
 import {
@@ -36,7 +36,7 @@ import {
   RECITATION_BLOCKED_MESSAGE,
   OTHER_BLOCKED_MESSAGE,
   TRUE_EMPTY_RESPONSE_MESSAGE,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 
 import type { Content, Part } from '@google/genai';
 import readline from 'node:readline';

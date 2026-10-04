@@ -7,7 +7,7 @@
 import {
   ALL_BUILTIN_TOOL_NAMES,
   TOOL_LEGACY_ALIASES,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 
 export type ToolCategory =
   | 'file-system'

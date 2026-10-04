@@ -11,7 +11,7 @@ vi.mock('node:fs', () => ({
   writeSync: vi.fn(),
 }));
 
-vi.mock('@google/gemini-cli-core', () => ({
+vi.mock('deepseek-cli-core', () => ({
   debugLogger: {
     log: vi.fn(),
     warn: vi.fn(),

@@ -14,9 +14,10 @@ Made by Michael Owusu Ntim.
 
 DeepSeek CLI is a terminal coding agent: you type a request, it plans, calls
 tools (shell, file reads/writes, search), reads the results, and answers — all
-backed by the DeepSeek web chat. It is a fork of an Apache-2.0 licensed
-terminal-agent front-end, rewired to talk to DeepSeek and cleaned of all
-user-facing Google branding.
+backed by the DeepSeek web chat.
+
+Forked from the Apache-2.0 licensed Gemini CLI. All Gemini branding has been
+removed; the underlying agent loop remains.
 
 ## Features
 
@@ -29,7 +30,7 @@ user-facing Google branding.
 - **YOLO default**: tool calls auto-approve out of the box (`security.autoApprove`,
   default `true`).
 - **Resume and session persistence**: every run writes a session under the CLI
-  temp directory (`~/.gemini/tmp/<project>/chats/`); resume with `--resume latest`.
+  temp directory (`~/.deepseek/tmp/<project>/chats/`); resume with `--resume latest`.
 - **DEEPSEEK.md context**: project context is loaded from `DEEPSEEK.md`, with
   `GEMINI.md` still honored as a fallback for upstream projects.
 - **Multi-step tool use**: read files, run shell commands, write and modify
@@ -80,7 +81,7 @@ Useful slash commands:
 
 ## Configuration
 
-Settings live in `~/.gemini/settings.json`. The DeepSeek-relevant block:
+Settings live in `~/.deepseek/settings.json`. The DeepSeek-relevant block:
 
 ```json
 {
@@ -106,13 +107,10 @@ The fork also ships two optional OpenAI-compatible backends — an
 `openai-compatible` provider and a `llamacpp` provider. They are **off by
 default**, do not appear in the picker unless explicitly configured, and are
 kept for future use. To enable one, add a `providers` block to
-`~/.gemini/settings.json` and point `security.auth.selectedType` at it.
+`~/.deepseek/settings.json` and point `security.auth.selectedType` at it.
 
 ## Licence
 
 Apache License 2.0. See [LICENSE](LICENSE).
 
-The codebase is derived from the Apache-2.0 licensed upstream project it was
-forked from; that project's licence and notices are retained. Google source is
-kept in place for cheap upstream rebases but is not reachable from the default
-DeepSeek paths.
+Apache License 2.0. See [LICENSE](LICENSE) for the full text and notices.

@@ -4,6 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { aliasLegacyEnv } from './utils/paths.js';
+
+// DeepSeek CLI: make DEEPSEEK_* and legacy GEMINI_* env vars interchangeable
+// (new names win) before anything reads them.
+aliasLegacyEnv();
+
 // Export config
 export * from './config/config.js';
 export * from './config/agent-loop-context.js';

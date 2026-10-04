@@ -29,11 +29,11 @@ Remove-Item -Path (Join-Path $env:LocalAppData "npm-cache\_npx") -Recurse -Force
 ## Method 2: Using npm (global install)
 
 If you installed the CLI globally (for example,
-`npm install -g @google/gemini-cli`), use the `npm uninstall` command with the
+`npm install -g deepseek-cli`), use the `npm uninstall` command with the
 `-g` flag to remove it.
 
 ```bash
-npm uninstall -g @google/gemini-cli
+npm uninstall -g deepseek-cli
 ```
 
 This command completely removes the package from your system.

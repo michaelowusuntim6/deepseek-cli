@@ -1,5 +1,5 @@
 {
-  "name": "@google/gemini-cli-sdk",
+  "name": "deepseek-cli-sdk",
   "version": "0.64.0-nightly.20260929.gd75234cae",
   "description": "Gemini CLI SDK",
   "license": "Apache-2.0",
@@ -22,7 +22,7 @@
     "dist"
   ],
   "dependencies": {
-    "@google/gemini-cli-core": "file:../core",
+    "deepseek-cli-core": "file:../core",
     "zod": "3.25.76",
     "zod-to-json-schema": "3.25.1"
   },

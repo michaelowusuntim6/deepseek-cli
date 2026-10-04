@@ -14,7 +14,7 @@ import {
   GEMINI_DIR,
   homedir,
   resolveToRealPath,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 
 export const LOCAL_DEV_SANDBOX_IMAGE_NAME = 'gemini-cli-sandbox';
 export const SANDBOX_NETWORK_NAME = 'gemini-cli-sandbox';

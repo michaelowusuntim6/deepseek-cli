@@ -22,7 +22,7 @@ import {
   ActivateSkillTool,
   type ResumedSessionData,
   PolicyDecision,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 
 import { type Tool, SdkTool } from './tool.js';
 import { SdkAgentFilesystem } from './fs.js';
@@ -36,7 +36,7 @@ import type { SkillReference } from './skills.js';
 import type { GeminiCliAgent } from './agent.js';
 
 /**
- * Represents an interactive conversation session with a Gemini CLI agent.
+ * Represents an interactive conversation session with a DeepSeek CLI agent.
  *
  * A session manages the conversation lifecycle: initialization, sending messages
  * via streaming, handling tool calls, and maintaining conversation history.

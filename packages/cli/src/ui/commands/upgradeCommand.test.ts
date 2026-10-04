@@ -13,11 +13,11 @@ import {
   openBrowserSecurely,
   shouldLaunchBrowser,
   UPGRADE_URL_PAGE,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 
-vi.mock('@google/gemini-cli-core', async (importOriginal) => {
+vi.mock('deepseek-cli-core', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('@google/gemini-cli-core')>();
+    await importOriginal<typeof import('deepseek-cli-core')>();
   return {
     ...actual,
     openBrowserSecurely: vi.fn(),

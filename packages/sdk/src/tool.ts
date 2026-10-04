@@ -14,7 +14,7 @@ import {
   type ExecuteOptions,
   Kind,
   type MessageBus,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import type { SessionContext } from './types.js';
 
 export { z };
@@ -210,7 +210,7 @@ export class SdkTool<T extends z.ZodTypeAny> extends BaseDeclarativeTool<
  *
  * @example
  * ```typescript
- * import { z, tool } from '@google/gemini-cli-sdk';
+ * import { z, tool } from 'deepseek-cli-sdk';
  *
  * const myTool = tool(
  *   {

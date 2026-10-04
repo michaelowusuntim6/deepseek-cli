@@ -11,7 +11,7 @@ import {
   debugLogger,
   type SkillDefinition,
   type MCPServerConfig,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import chalk from 'chalk';
 
 import type { ConfirmationRequest } from '../../ui/types.js';

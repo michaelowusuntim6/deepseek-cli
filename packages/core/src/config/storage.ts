@@ -10,6 +10,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import {
   GEMINI_DIR,
+  LEGACY_APP_DIR_NAME,
   homedir,
   GOOGLE_ACCOUNTS_FILENAME,
   isSubpath,
@@ -342,7 +343,14 @@ export class Storage {
   }
 
   getWorkspaceSettingsPath(): string {
-    return path.join(this.getGeminiDir(), 'settings.json');
+    const modern = path.join(this.getGeminiDir(), 'settings.json');
+    if (fs.existsSync(modern)) {
+      return modern;
+    }
+    // Backward compatibility: keep reading a project's legacy `.gemini/`
+    // settings when it has not been migrated to `.deepseek/` yet.
+    const legacy = path.join(this.targetDir, LEGACY_APP_DIR_NAME, 'settings.json');
+    return fs.existsSync(legacy) ? legacy : modern;
   }
 
   getProjectCommandsDir(): string {

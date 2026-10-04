@@ -14,7 +14,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import {
   PREVIEW_GEMINI_FLASH_MODEL,
   GEMINI_DIR,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 export { GEMINI_DIR };
 import * as pty from '@lydell/node-pty';
 import stripAnsi from 'strip-ansi';
@@ -524,7 +524,7 @@ export class TestRig {
   }
 
   /**
-   * The command and args to use to invoke Gemini CLI. Allows us to switch
+   * The command and args to use to invoke DeepSeek CLI. Allows us to switch
    * between using the bundled gemini.js (the default) and using the installed
    * 'gemini' (used to verify npm bundles).
    */

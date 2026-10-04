@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Storage, type Config } from '@google/gemini-cli-core';
+import { Storage, type Config } from 'deepseek-cli-core';
 import { commandsCommand } from './commandsCommand.js';
 import { MessageType } from '../types.js';
 import { createMockCommandContext } from '../../test-utils/mockCommandContext.js';
@@ -14,10 +14,10 @@ import { FileCommandLoader } from '../../services/FileCommandLoader.js';
 
 vi.mock('../../services/FileCommandLoader.js');
 
-vi.mock('@google/gemini-cli-core', async () => {
+vi.mock('deepseek-cli-core', async () => {
   const actual = await vi.importActual<
-    typeof import('@google/gemini-cli-core')
-  >('@google/gemini-cli-core');
+    typeof import('deepseek-cli-core')
+  >('deepseek-cli-core');
   return {
     ...actual,
     Storage: class extends actual.Storage {

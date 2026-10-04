@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { Storage } from '@google/gemini-cli-core';
+import { Storage } from 'deepseek-cli-core';
 import { PersistentState } from './persistentState.js';
 
 describe('PersistentState Recovery & Atomic Persist', () => {

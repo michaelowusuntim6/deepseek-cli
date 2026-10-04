@@ -10,17 +10,104 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-export const GEMINI_DIR = '.gemini';
+/** DeepSeek CLI application identity (single source of truth). */
+export const APP_DIR_NAME = '.deepseek';
+export const APP_NAME = 'DeepSeek CLI';
+export const APP_SLUG = 'deepseek-cli';
+/** Legacy directory name, kept only for the one-time data migration. */
+export const LEGACY_APP_DIR_NAME = '.gemini';
+/**
+ * @deprecated Use {@link APP_DIR_NAME}. Retained as an alias so every existing
+ * call site resolves to the new application directory.
+ */
+export const GEMINI_DIR = APP_DIR_NAME;
 export const GOOGLE_ACCOUNTS_FILENAME = 'google_accounts.json';
 export const TRUSTED_FOLDERS_FILENAME = 'trustedFolders.json';
 
 /**
+ * Reads an environment variable, preferring the DeepSeek name and falling back
+ * to the legacy GEMINI_* name so existing scripts keep working.
+ */
+export function deepseekEnv(
+  name: string,
+  legacyName?: string,
+): string | undefined {
+  const value = process.env[name];
+  if (value !== undefined) {
+    return value;
+  }
+  return legacyName ? process.env[legacyName] : undefined;
+}
+
+let legacyMigrationDone = false;
+
+let envAliasDone = false;
+
+/**
+ * DeepSeek CLI reads DEEPSEEK_* environment variables, falling back to the
+ * legacy GEMINI_* spellings. Rather than touching every call site, mirror the
+ * two namespaces once per process: a DEEPSEEK_* value always wins, and every
+ * legacy GEMINI_* variable gets a DEEPSEEK_* twin.
+ */
+export function aliasLegacyEnv(env: NodeJS.ProcessEnv = process.env): void {
+  if (envAliasDone) {
+    return;
+  }
+  envAliasDone = true;
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('DEEPSEEK_')) {
+      const legacy = `GEMINI_${key.slice('DEEPSEEK_'.length)}`;
+      // New name wins when both are set.
+      env[legacy] = env[key];
+    }
+  }
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('GEMINI_')) {
+      const modern = `DEEPSEEK_${key.slice('GEMINI_'.length)}`;
+      if (env[modern] === undefined) {
+        env[modern] = env[key];
+      }
+    }
+  }
+}
+
+/**
+ * One-time migration: copy `~/.gemini/` to `~/.deepseek/` when the new
+ * directory does not exist yet. This is a COPY, never a move, so the legacy
+ * directory is left in place for the user to clean up.
+ */
+export function migrateLegacyAppDir(homeDir: string = homedir()): boolean {
+  if (legacyMigrationDone) {
+    return false;
+  }
+  legacyMigrationDone = true;
+  const target = path.join(homeDir, APP_DIR_NAME);
+  const legacy = path.join(homeDir, LEGACY_APP_DIR_NAME);
+  try {
+    if (!fs.existsSync(legacy) || fs.existsSync(target)) {
+      return false;
+    }
+    fs.cpSync(legacy, target, { recursive: true });
+    // eslint-disable-next-line no-console
+    console.error('[migrate] copied settings from ~/.gemini/ to ~/.deepseek/');
+    return true;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(
+      '[migrate] failed to copy ~/.gemini/ to ~/.deepseek/:',
+      error,
+    );
+    return false;
+  }
+}
+
+/**
  * Returns the home directory.
- * If GEMINI_CLI_HOME environment variable is set, it returns its value.
+ * If DEEPSEEK_CLI_HOME (or the legacy GEMINI_CLI_HOME) is set, returns that.
  * Otherwise, it returns the user's home directory.
  */
 export function homedir(): string {
-  const envHome = process.env['GEMINI_CLI_HOME'];
+  const envHome = deepseekEnv('DEEPSEEK_CLI_HOME', 'GEMINI_CLI_HOME');
   if (envHome) {
     return envHome;
   }

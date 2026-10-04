@@ -1,5 +1,5 @@
 {
-  "name": "@google/gemini-cli-test-utils",
+  "name": "deepseek-cli-test-utils",
   "version": "0.64.0-nightly.20260929.gd75234cae",
   "private": true,
   "main": "src/index.ts",
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/gemini-cli-core": "file:../core",
+    "deepseek-cli-core": "file:../core",
     "@lydell/node-pty": "1.1.0",
     "asciichart": "1.5.25",
     "strip-ansi": "7.1.2",

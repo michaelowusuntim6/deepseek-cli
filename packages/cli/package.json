@@ -1,5 +1,5 @@
 {
-  "name": "@google/gemini-cli",
+  "name": "deepseek-cli",
   "version": "0.64.0-nightly.20260929.gd75234cae",
   "description": "Gemini CLI",
   "license": "Apache-2.0",
@@ -10,7 +10,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "gemini": "dist/index.js"
+    "deepseek": "dist/index.js"
   },
   "scripts": {
     "build": "node ../../scripts/build_package.js",
@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "0.16.1",
-    "@google/gemini-cli-core": "file:../core",
+    "deepseek-cli-core": "file:../core",
     "@google/genai": "1.30.0",
     "@iarna/toml": "2.2.5",
     "@modelcontextprotocol/sdk": "1.23.0",
@@ -72,7 +72,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@google/gemini-cli-test-utils": "file:../test-utils",
+    "deepseek-cli-test-utils": "file:../test-utils",
     "@types/command-exists": "1.2.3",
     "@types/hast": "3.0.4",
     "@types/node": "20.11.24",

@@ -676,7 +676,12 @@ export class Scheduler {
       isTaintRiskDetectable(toolCall.invocation) &&
       toolCall.invocation.hasTaintedOrBuildFileRisk();
 
-    if (decision === PolicyDecision.ALLOW && hasTaintRisk) {
+    // DeepSeek CLI: YOLO (security.autoApprove) must behave exactly like
+    // upstream Ctrl+Y — no interactive prompt for any tool, including commands
+    // that touch build/tainted files (setup.py, requirements.txt, …). The
+    // taint-risk escalation is the last gate that could still ask.
+    const autoApprove = this.config.isAutoApproveEnabled?.() ?? false;
+    if (decision === PolicyDecision.ALLOW && hasTaintRisk && !autoApprove) {
       decision =
         (this.config.isInteractive?.() ?? true)
           ? PolicyDecision.ASK_USER

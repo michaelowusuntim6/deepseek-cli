@@ -5,7 +5,7 @@
  */
 
 import { Box, Static } from 'ink';
-import { CoreToolCallStatus } from '@google/gemini-cli-core';
+import { CoreToolCallStatus } from 'deepseek-cli-core';
 import { HistoryItemDisplay } from './HistoryItemDisplay.js';
 import { UIStateContext, useUIState } from '../contexts/UIStateContext.js';
 import { useAppContext } from '../contexts/AppContext.js';

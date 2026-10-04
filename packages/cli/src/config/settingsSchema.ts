@@ -23,7 +23,7 @@ import {
   type CustomTheme,
   type SandboxConfig,
   type VertexAiRoutingConfig,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import type { SessionRetentionSettings } from './settings.js';
 import { DEFAULT_MIN_RETENTION } from '../utils/sessionCleanup.js';
 
@@ -268,7 +268,7 @@ const SETTINGS_SCHEMA = {
         category: 'General',
         requiresRestart: false,
         // DeepSeek CLI fork: the upstream check queries Google's npm registry
-        // for the Gemini CLI package and tells the user to `git pull` Google's
+        // for the DeepSeek CLI package and tells the user to `git pull` Google's
         // repo, which is meaningless here. Off by default.
         default: false,
         description: 'Enable update notification prompts.',

@@ -18,7 +18,7 @@ import {
   type ToolCallRequestInfo,
   type Config,
   resolveToRealPath,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import { v4 as uuidv4 } from 'uuid';
 
 import { logger } from '../utils/logger.js';

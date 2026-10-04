@@ -30,16 +30,16 @@ import {
   ExitCodes,
   isHeadlessMode,
   FolderTrustDiscoveryService,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import { MessageType } from '../types.js';
 
 const mockedCwd = vi.hoisted(() => vi.fn().mockReturnValue('/mock/cwd'));
 const mockedExit = vi.hoisted(() => vi.fn());
 
-vi.mock('@google/gemini-cli-core', async () => {
+vi.mock('deepseek-cli-core', async () => {
   const actual = await vi.importActual<
-    typeof import('@google/gemini-cli-core')
-  >('@google/gemini-cli-core');
+    typeof import('deepseek-cli-core')
+  >('deepseek-cli-core');
   return {
     ...actual,
     isHeadlessMode: vi.fn().mockReturnValue(false),

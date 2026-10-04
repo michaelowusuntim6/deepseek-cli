@@ -13,7 +13,7 @@
  * and one update is silently lost.
  *
  * Scope: this coordinates callers inside a single process only. It does not
- * guard against a second Gemini CLI process, an editor, or any other program
+ * guard against a second DeepSeek CLI process, an editor, or any other program
  * writing the same file; that would require an on-disk lock.
  *
  * Callers are expected to pass an already-resolved absolute path so that two

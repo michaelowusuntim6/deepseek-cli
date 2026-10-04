@@ -7,7 +7,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { parse, stringify } from 'comment-json';
-import { coreEvents } from '@google/gemini-cli-core';
+import { coreEvents } from 'deepseek-cli-core';
 
 /**
  * Type representing an object that may contain Symbol keys for comments.

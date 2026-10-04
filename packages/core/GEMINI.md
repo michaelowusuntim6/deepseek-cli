@@ -1,4 +1,4 @@
-# Gemini CLI Core (`@google/gemini-cli-core`)
+# Gemini CLI Core (`deepseek-cli-core`)
 
 Backend logic for Gemini CLI: API orchestration, prompt construction, tool
 execution, and agent management.
@@ -42,6 +42,6 @@ execution, and agent management.
 
 ## Testing
 
-- Run tests: `npm test -w @google/gemini-cli-core`
+- Run tests: `npm test -w deepseek-cli-core`
 - Run a specific test:
-  `npm test -w @google/gemini-cli-core -- src/path/to/file.test.ts`
+  `npm test -w deepseek-cli-core -- src/path/to/file.test.ts`

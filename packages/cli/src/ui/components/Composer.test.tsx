@@ -21,8 +21,8 @@ import {
   ApprovalMode,
   tokenLimit,
   CoreToolCallStatus,
-} from '@google/gemini-cli-core';
-import type { Config } from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
+import type { Config } from 'deepseek-cli-core';
 import { StreamingState } from '../types.js';
 import {
   appEvents,

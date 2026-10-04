@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-vi.unmock('@google/gemini-cli-core');
+vi.unmock('deepseek-cli-core');
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -13,8 +13,8 @@ import {
   Config,
   checkPathTrust,
   SimpleExtensionLoader,
-} from '@google/gemini-cli-core';
-import * as core from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
+import * as core from 'deepseek-cli-core';
 import { loadConfig } from './config.js';
 import type { Settings } from './settings.js';
 

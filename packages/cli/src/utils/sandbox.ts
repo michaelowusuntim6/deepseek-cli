@@ -18,7 +18,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { quote, parse } from 'shell-quote';
 import { promisify } from 'node:util';
-import type { Config, SandboxConfig } from '@google/gemini-cli-core';
+import type { Config, SandboxConfig } from 'deepseek-cli-core';
 import {
   coreEvents,
   debugLogger,
@@ -26,7 +26,7 @@ import {
   GEMINI_DIR,
   homedir,
   resolveToRealPath,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import { ConsolePatcher } from '../ui/utils/ConsolePatcher.js';
 import { randomBytes } from 'node:crypto';
 import stripJsonComments from 'strip-json-comments';

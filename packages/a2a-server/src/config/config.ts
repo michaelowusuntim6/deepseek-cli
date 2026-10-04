@@ -32,7 +32,7 @@ import {
   type ExtensionLoader,
   resolveToRealPath,
   checkPathTrust,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 
 import { logger } from '../utils/logger.js';
 import { type Settings, loadSettings } from './settings.js';

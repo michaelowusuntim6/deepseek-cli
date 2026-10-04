@@ -51,26 +51,63 @@ const CLOSE_TAG = '</tool_call>';
 const BAR = '\uFF5C\uFF5C';
 const DSML_CALLS_OPEN = `<${BAR}DSML${BAR} calls>`;
 const DSML_CALLS_CLOSE = `</${BAR}DSML${BAR} calls>`;
-const DSML_INVOKE_RE = new RegExp(
-  `<${BAR}DSML${BAR} invoke\\s+name="([^"]+)">([\\s\\S]*?)</${BAR}DSML${BAR} invoke>`,
+const DSML_INVOKE_OPEN_RE = new RegExp(
+  `<${BAR}DSML${BAR} invoke\\s+name="([^"]+)">`,
   'g',
 );
-const DSML_PARAM_RE = new RegExp(
-  `<${BAR}DSML${BAR} parameter\\s+name="([^"]+)"(?:\\s+string="(true|false)")?>([\\s\\S]*?)</${BAR}DSML${BAR} parameter>`,
+const DSML_INVOKE_CLOSE = `</${BAR}DSML${BAR} invoke>`;
+const DSML_PARAM_OPEN_RE = new RegExp(
+  `<${BAR}DSML${BAR} parameter\\s+name="([^"]+)"(?:\\s+string="(true|false)")?>`,
   'g',
 );
+const DSML_PARAM_CLOSE = `</${BAR}DSML${BAR} parameter>`;
 
+/**
+ * Extract DSML invoke blocks from the body of a `<calls>` block.
+ *
+ * A parameter value is EXACTLY the raw substring between its opening
+ * `<parameter ...>` tag and the matching `</parameter>` tag — `<`, `>`, `&`,
+ * `|`, newlines and quotes inside the value are preserved verbatim. We never
+ * split on `<`, which is what previously dropped shell commands containing
+ * `<<` heredocs, `<filename>` redirections or `1<2` comparisons.
+ *
+ * If a closing tag is missing (the stream was cut mid-block) the extractor
+ * stops at that point instead of inventing a close.
+ */
 export function dsmlCallsToJson(text: string): ParsedToolCall[] {
   const calls: ParsedToolCall[] = [];
-  for (const match of text.matchAll(DSML_INVOKE_RE)) {
-    const name = match[1];
-    const body = match[2];
+  let cursor = 0;
+  while (true) {
+    DSML_INVOKE_OPEN_RE.lastIndex = cursor;
+    const invokeMatch = DSML_INVOKE_OPEN_RE.exec(text);
+    if (!invokeMatch) {
+      break;
+    }
+    const name = invokeMatch[1];
+    const bodyStart = invokeMatch.index + invokeMatch[0].length;
+    const bodyEnd = text.indexOf(DSML_INVOKE_CLOSE, bodyStart);
+    if (bodyEnd === -1) {
+      break; // incomplete invoke: stop, do not invent a close
+    }
+    const invokeBody = text.slice(bodyStart, bodyEnd);
     const args: Record<string, unknown> = {};
-    for (const param of body.matchAll(DSML_PARAM_RE)) {
-      const paramName = param[1];
-      const stringAttr = param[2];
-      const raw = (param[3] ?? '').trim();
-      if (stringAttr === 'true') {
+    let paramCursor = 0;
+    while (true) {
+      DSML_PARAM_OPEN_RE.lastIndex = paramCursor;
+      const paramMatch = DSML_PARAM_OPEN_RE.exec(invokeBody);
+      if (!paramMatch) {
+        break;
+      }
+      const paramName = paramMatch[1];
+      const isString = paramMatch[2] === 'true';
+      const valueStart = paramMatch.index + paramMatch[0].length;
+      const valueEnd = invokeBody.indexOf(DSML_PARAM_CLOSE, valueStart);
+      if (valueEnd === -1) {
+        break; // incomplete parameter: stop
+      }
+      // CRITICAL: raw substring between the boundaries. No `<` scanning.
+      const raw = invokeBody.slice(valueStart, valueEnd);
+      if (isString) {
         args[paramName] = raw;
       } else {
         try {
@@ -79,11 +116,50 @@ export function dsmlCallsToJson(text: string): ParsedToolCall[] {
           args[paramName] = raw;
         }
       }
+      paramCursor = valueEnd + DSML_PARAM_CLOSE.length;
     }
     calls.push({
       name,
       arguments: args,
       raw: JSON.stringify({ name, arguments: args }),
+    });
+    cursor = bodyEnd + DSML_INVOKE_CLOSE.length;
+  }
+  return calls;
+}
+
+/**
+ * Extract tool calls from a full `<calls>…</calls>` region (or from a body
+ * whose closing `</calls>` never arrived — some fragments cut off mid-stream).
+ */
+export function dsmlCallsFromRegion(
+  region: string,
+  debug = false,
+): ParsedToolCall[] {
+  const openIdx = region.indexOf(DSML_CALLS_OPEN);
+  let body: string;
+  if (openIdx === -1) {
+    body = region;
+  } else {
+    const start = openIdx + DSML_CALLS_OPEN.length;
+    const end = region.indexOf(DSML_CALLS_CLOSE, start);
+    body = end === -1 ? region.slice(start) : region.slice(start, end);
+  }
+  const calls = dsmlCallsToJson(body);
+  if (debug && process.env['DEEPSEEK_DSML_DEBUG']) {
+    console.error(
+      '[dsml] blocks_found=%d blocks_parsed=%d last_buffer_tail=%s',
+      (body.match(new RegExp(`<${BAR}DSML${BAR} invoke`, 'g')) ?? []).length,
+      calls.length,
+      JSON.stringify(body.slice(-80)),
+    );
+    calls.forEach((call, i) => {
+      console.error(
+        '[dsml-block] index=%d name=%s arg_chars=%d',
+        i,
+        call.name,
+        JSON.stringify(call.arguments).length,
+      );
     });
   }
   return calls;
@@ -191,6 +267,13 @@ export class SseFragmentParser {
   private readonly fragmentKinds = new Map<number, PartKind>();
   private readonly lastSeen = new Map<number, string>();
   private answerBuffer = '';
+  /**
+   * Buffer for THINK fragments. DeepSeek frequently emits a tool call from
+   * inside the thinking phase (no RESPONSE fragment is registered first), so
+   * the thinking stream must be scanned for DSML too — otherwise the call is
+   * rendered as visible reasoning text and never dispatched.
+   */
+  private thinkingBuffer = '';
   private inToolCall = false;
   private toolCallBuffer = '';
   private inDsml = false;
@@ -272,7 +355,10 @@ export class SseFragmentParser {
         const closeIdx = combined.indexOf(DSML_CALLS_CLOSE, pos);
         if (closeIdx !== -1) {
           this.dsmlBuffer += combined.slice(pos, closeIdx);
-          for (const call of dsmlCallsToJson(this.dsmlBuffer)) {
+          for (const call of dsmlCallsFromRegion(
+            `${DSML_CALLS_OPEN}${this.dsmlBuffer}${DSML_CALLS_CLOSE}`,
+            true,
+          )) {
             out.push({ kind: 'tool_call', text: call.raw });
           }
           this.dsmlBuffer = '';
@@ -323,6 +409,58 @@ export class SseFragmentParser {
     return out;
   }
 
+  /**
+   * Handle non-answer text (THINK fragments). Tool calls can be emitted inside
+   * the reasoning phase; extract them instead of rendering the DSML as text.
+   */
+  private processThinkingChunk(text: string): StreamPart[] {
+    const out: StreamPart[] = [];
+    this.thinkingBuffer += text;
+    for (;;) {
+      const openIdx = this.thinkingBuffer.indexOf(DSML_CALLS_OPEN);
+      if (openIdx === -1) {
+        // No DSML in the buffer: emit everything but a small tail so a tag
+        // split across fragments is still recognised next time.
+        const keep = DSML_CALLS_OPEN.length + 8;
+        if (this.thinkingBuffer.length > keep) {
+          out.push({
+            kind: 'thinking',
+            text: this.thinkingBuffer.slice(0, this.thinkingBuffer.length - keep),
+          });
+          this.thinkingBuffer = this.thinkingBuffer.slice(
+            this.thinkingBuffer.length - keep,
+          );
+        }
+        return out;
+      }
+      if (openIdx > 0) {
+        out.push({
+          kind: 'thinking',
+          text: this.thinkingBuffer.slice(0, openIdx),
+        });
+      }
+      const closeIdx = this.thinkingBuffer.indexOf(
+        DSML_CALLS_CLOSE,
+        openIdx + DSML_CALLS_OPEN.length,
+      );
+      if (closeIdx === -1) {
+        // Incomplete block: keep buffering from the open tag.
+        this.thinkingBuffer = this.thinkingBuffer.slice(openIdx);
+        return out;
+      }
+      const region = this.thinkingBuffer.slice(
+        openIdx,
+        closeIdx + DSML_CALLS_CLOSE.length,
+      );
+      for (const call of dsmlCallsFromRegion(region, true)) {
+        out.push({ kind: 'tool_call', text: call.raw });
+      }
+      this.thinkingBuffer = this.thinkingBuffer.slice(
+        closeIdx + DSML_CALLS_CLOSE.length,
+      );
+    }
+  }
+
   /** Feed one raw SSE line (the text after `data: `). */
   feedPayload(payload: string): StreamPart[] {
     if (!payload || payload === '[DONE]') {
@@ -361,7 +499,7 @@ export class SseFragmentParser {
               if (kind === 'answer') {
                 out.push(...this.processAnswerChunk(content));
               } else {
-                out.push({ kind, text: content });
+                out.push(...this.processThinkingChunk(content));
               }
             }
           }
@@ -374,7 +512,7 @@ export class SseFragmentParser {
           if (kind === 'answer') {
             out.push(...this.processAnswerChunk(opV));
           } else {
-            out.push({ kind, text: opV });
+            out.push(...this.processThinkingChunk(opV));
           }
         } else if (opP.endsWith('quasi_status') && opV === 'FINISHED') {
           // Deliberately ignored: only response/status FINISHED is the marker.
@@ -405,7 +543,7 @@ export class SseFragmentParser {
           if (kind === 'answer') {
             out.push(...this.processAnswerChunk(delta));
           } else {
-            out.push({ kind, text: delta });
+            out.push(...this.processThinkingChunk(delta));
           }
         }
       });
@@ -446,7 +584,7 @@ export class SseFragmentParser {
           if (kind === 'answer') {
             out.push(...this.processAnswerChunk(content));
           } else {
-            out.push({ kind, text: content });
+            out.push(...this.processThinkingChunk(content));
           }
         }
       }
@@ -493,7 +631,7 @@ export class SseFragmentParser {
       if (kind === 'answer') {
         out.push(...this.processAnswerChunk(v));
       } else {
-        out.push({ kind, text: v });
+        out.push(...this.processThinkingChunk(v));
       }
     }
     return out;
@@ -517,17 +655,24 @@ export class SseFragmentParser {
     }
     if (this.inDsml && this.dsmlBuffer) {
       const closeIdx = this.dsmlBuffer.indexOf(DSML_CALLS_CLOSE);
+      const body =
+        closeIdx === -1 ? this.dsmlBuffer : this.dsmlBuffer.slice(0, closeIdx);
+      // Parse whatever complete <invoke> blocks are present even when the
+      // outer </calls> never arrived (the stream was cut mid-block).
+      for (const call of dsmlCallsFromRegion(
+        `${DSML_CALLS_OPEN}${body}`,
+        true,
+      )) {
+        out.push({ kind: 'tool_call', text: call.raw });
+      }
       if (closeIdx !== -1) {
-        for (const call of dsmlCallsToJson(
-          this.dsmlBuffer.slice(0, closeIdx),
-        )) {
-          out.push({ kind: 'tool_call', text: call.raw });
-        }
         const after = this.dsmlBuffer.slice(closeIdx + DSML_CALLS_CLOSE.length);
         if (after) {
           out.push({ kind: 'answer', text: after.replace(/^\s*FINISHED/, '') });
         }
       }
+      this.dsmlBuffer = '';
+      this.inDsml = false;
     }
     if (this.answerBuffer) {
       const text = this.stripFinished
@@ -537,6 +682,19 @@ export class SseFragmentParser {
         out.push({ kind: 'answer', text });
       }
       this.answerBuffer = '';
+    }
+    if (this.thinkingBuffer) {
+      // Drain any buffered thinking text; a complete DSML block that never got
+      // its closing </calls> is still parsed by dsmlCallsFromRegion.
+      const remaining = this.thinkingBuffer;
+      this.thinkingBuffer = '';
+      if (remaining.includes(DSML_CALLS_OPEN)) {
+        for (const call of dsmlCallsFromRegion(remaining, true)) {
+          out.push({ kind: 'tool_call', text: call.raw });
+        }
+      } else {
+        out.push({ kind: 'thinking', text: remaining });
+      }
     }
     return out;
   }

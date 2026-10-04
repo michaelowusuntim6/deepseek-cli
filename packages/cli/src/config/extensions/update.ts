@@ -16,7 +16,7 @@ import {
   getErrorMessage,
   type GeminiCLIExtension,
   IntegrityDataStatus,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import { copyExtension, type ExtensionManager } from '../extension-manager.js';
 import { ExtensionStorage } from './storage.js';
 import { removeDirectoryWithRetry } from '../../utils/retry.js';

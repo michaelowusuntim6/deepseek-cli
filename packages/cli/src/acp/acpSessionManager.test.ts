@@ -27,7 +27,7 @@ import {
   GEMINI_MODEL_ALIAS_AUTO,
   type MessageBus,
   Storage,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import type { LoadedSettings } from '../config/settings.js';
 import { loadCliConfig, type CliArgs } from '../config/config.js';
 import { loadSettings } from '../config/settings.js';

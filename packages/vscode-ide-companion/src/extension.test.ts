@@ -10,13 +10,13 @@ import { activate } from './extension.js';
 import {
   IDE_DEFINITIONS,
   detectIdeFromEnv,
-} from '@google/gemini-cli-core/src/ide/detect-ide.js';
+} from 'deepseek-cli-core/src/ide/detect-ide.js';
 
 const { vscodeMock } = await vi.hoisted(() => import('./utils/vscode-mock.js'));
 
-vi.mock('@google/gemini-cli-core/src/ide/detect-ide.js', async () => {
+vi.mock('deepseek-cli-core/src/ide/detect-ide.js', async () => {
   const actual = await vi.importActual(
-    '@google/gemini-cli-core/src/ide/detect-ide.js',
+    'deepseek-cli-core/src/ide/detect-ide.js',
   );
   return {
     ...actual,

@@ -1,5 +1,5 @@
 {
-  "name": "@google/gemini-cli-core",
+  "name": "deepseek-cli-core",
   "version": "0.64.0-nightly.20260929.gd75234cae",
   "description": "Gemini CLI Core",
   "license": "Apache-2.0",
@@ -105,7 +105,7 @@
     "node-pty": "1.0.0"
   },
   "devDependencies": {
-    "@google/gemini-cli-test-utils": "file:../test-utils",
+    "deepseek-cli-test-utils": "file:../test-utils",
     "@types/fast-levenshtein": "0.0.4",
     "@types/js-yaml": "4.0.9",
     "@types/json-stable-stringify": "1.1.0",

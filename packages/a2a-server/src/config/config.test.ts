@@ -22,13 +22,13 @@ import {
   ApprovalMode,
   PRIORITY_YOLO_ALLOW_ALL,
   createPolicyEngineConfig,
-} from '@google/gemini-cli-core';
+} from 'deepseek-cli-core';
 import type { AgentSettings } from '../types.js';
 
 // Mock dependencies
-vi.mock('@google/gemini-cli-core', async (importOriginal) => {
+vi.mock('deepseek-cli-core', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('@google/gemini-cli-core')>();
+    await importOriginal<typeof import('deepseek-cli-core')>();
   return {
     ...actual,
     PRIORITY_YOLO_ALLOW_ALL: 998,
@@ -590,7 +590,7 @@ describe('setIsTrusted', () => {
 
   it('should respect V2 security.folderTrust.enabled when checking workspace trust', async () => {
     const settingsModule = await import('./settings.js');
-    const coreModule = await import('@google/gemini-cli-core');
+    const coreModule = await import('deepseek-cli-core');
     vi.spyOn(settingsModule, 'loadSettings').mockReturnValue({
       security: { folderTrust: { enabled: false } },
     });

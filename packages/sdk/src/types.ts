@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { Content } from '@google/gemini-cli-core';
+import type { Content } from 'deepseek-cli-core';
 import type { Tool } from './tool.js';
 import type { SkillReference } from './skills.js';
 import type { GeminiCliAgent } from './agent.js';
 import type { GeminiCliSession } from './session.js';
 
 /**
- * System instructions for a Gemini CLI agent.
+ * System instructions for a DeepSeek CLI agent.
  *
  * Can be either a static string or a function that receives the current
  * session context and returns a string (or a promise of one), allowing

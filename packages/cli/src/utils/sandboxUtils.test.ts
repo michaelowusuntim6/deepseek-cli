@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { resolveToRealPath, homedir } from '@google/gemini-cli-core';
+import { resolveToRealPath, homedir } from 'deepseek-cli-core';
 import {
   getContainerPath,
   parseImageName,
@@ -26,7 +26,7 @@ import {
 vi.mock('node:os');
 vi.mock('node:fs');
 vi.mock('node:fs/promises');
-vi.mock('@google/gemini-cli-core', () => ({
+vi.mock('deepseek-cli-core', () => ({
   debugLogger: {
     log: vi.fn(),
     warn: vi.fn(),
@@ -202,7 +202,7 @@ describe('sandboxUtils', () => {
         homedir: '/home/test',
       });
 
-      const { debugLogger } = await import('@google/gemini-cli-core');
+      const { debugLogger } = await import('deepseek-cli-core');
       expect(await shouldUseCurrentUserInSandbox()).toBe(false);
       expect(debugLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining(
@@ -232,7 +232,7 @@ describe('sandboxUtils', () => {
         homedir: '/root',
       });
 
-      const { debugLogger } = await import('@google/gemini-cli-core');
+      const { debugLogger } = await import('deepseek-cli-core');
       expect(await shouldUseCurrentUserInSandbox()).toBe(false);
       expect(debugLogger.warn).not.toHaveBeenCalledWith(
         expect.stringContaining('Host UID mismatch detected'),
@@ -244,7 +244,7 @@ describe('sandboxUtils', () => {
       vi.mocked(os.platform).mockReturnValue('linux');
       vi.mocked(readFile).mockRejectedValue(new Error('EACCES'));
 
-      const { debugLogger } = await import('@google/gemini-cli-core');
+      const { debugLogger } = await import('deepseek-cli-core');
       expect(await shouldUseCurrentUserInSandbox()).toBe(false);
       expect(debugLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('Could not read /etc/os-release'),

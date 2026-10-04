@@ -109,7 +109,7 @@ const cliConfig = {
   plugins: createWasmPlugins(),
   alias: {
     'is-in-ci': path.resolve(__dirname, 'packages/cli/src/patches/is-in-ci.ts'),
-    '@google/gemini-cli-devtools': path.resolve(
+    'deepseek-cli-devtools': path.resolve(
       __dirname,
       'packages/devtools/src/index.ts',
     ),
