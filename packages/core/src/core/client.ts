@@ -356,6 +356,17 @@ export class GeminiClient {
     }
     this.chat = await this.startChat(history, resumedSessionData);
     this.updateTelemetryTokenCount();
+    if (process.env['DEBUG_DEEPSEEK']) {
+      // DeepSeek CLI: show the persisted (estimated) context accounting that
+      // was restored from the session file.
+      const stats = this.getChatRecordingService()?.getSessionStats?.();
+      console.error(
+        '[session-stats] resumed: consumed=%d current=%d compressions=%d',
+        stats?.estimatedTokensConsumed ?? 0,
+        stats?.estimatedTokensCurrent ?? 0,
+        stats?.compressionCount ?? 0,
+      );
+    }
   }
 
   getChatRecordingService(): ChatRecordingService | undefined {

@@ -88,6 +88,42 @@ function isMessageRecord(record: unknown): record is MessageRecord {
   return isStringProperty(record, 'id') && !hasProperty(record, '$patch');
 }
 
+/**
+ * DeepSeek CLI: honest token estimate for a message (`chars / 4`). The
+ * DeepSeek web chat returns no usage metadata, so every number derived from
+ * this is labelled "(est.)" wherever it is shown to the user.
+ */
+export function estimatePartListTokens(content: unknown): number {
+  let chars = 0;
+  const walk = (value: unknown): void => {
+    if (typeof value === 'string') {
+      chars += value.length;
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) walk(item);
+      return;
+    }
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      if (typeof record['text'] === 'string') {
+        chars += record['text'].length;
+      }
+      if (record['functionResponse']) {
+        chars += JSON.stringify(record['functionResponse']).length;
+      }
+      if (record['functionCall']) {
+        chars += JSON.stringify(record['functionCall']).length;
+      }
+      if (record['thoughts'] && Array.isArray(record['thoughts'])) {
+        chars += JSON.stringify(record['thoughts']).length;
+      }
+    }
+  };
+  walk(content);
+  return Math.ceil(chars / 4);
+}
+
 function isMetadataUpdateRecord(
   record: unknown,
 ): record is MetadataUpdateRecord {
@@ -680,6 +716,9 @@ export class ChatRecordingService {
   private hasEvictedMessages = false;
   private fullConversationCache: WeakRef<ConversationRecord> | null = null;
   private isCacheDirty = true;
+  /** DeepSeek CLI: estimated (chars/4) context accounting for this session. */
+  private estimatedTokensConsumed = 0;
+  private compressionCount = 0;
 
   constructor(context: AgentLoopContext) {
     this.context = context;
@@ -704,6 +743,7 @@ export class ChatRecordingService {
         if (loadedRecord) {
           this.cachedConversation = loadedRecord;
           this.projectHash = this.cachedConversation.projectHash;
+          this.seedSessionStatsFromRecord();
 
           if (this.conversationFile.endsWith('.json')) {
             this.conversationFile = this.conversationFile + 'l'; // e.g. session-foo.jsonl
@@ -984,6 +1024,78 @@ export class ChatRecordingService {
     this.appendRecord({ $set: updates });
   }
 
+  /**
+   * DeepSeek CLI: current live-context estimate (chars/4) for this session.
+   */
+  private estimateCurrentTokens(): number {
+    const messages = this.cachedConversation?.messages ?? [];
+    let total = 0;
+    for (const message of messages) {
+      total +=
+        message.estimatedTokens ??
+        estimatePartListTokens(message.content) +
+          estimatePartListTokens(
+            (message as { thoughts?: unknown }).thoughts,
+          );
+    }
+    return total;
+  }
+
+  /**
+   * DeepSeek CLI: persist the running context accounting. Written after every
+   * message so the numbers survive a crash, and read back on resume.
+   */
+  private writeSessionStats(): void {
+    if (!this.cachedConversation) return;
+    this.updateMetadata({
+      sessionStats: {
+        estimatedTokensConsumed: this.estimatedTokensConsumed,
+        estimatedTokensCurrent: this.estimateCurrentTokens(),
+        compressionCount: this.compressionCount,
+      },
+    });
+  }
+
+  /**
+   * Called by the compressor each time it produces a snapshot. Adds the
+   * pre-compression estimate to the cumulative counter.
+   */
+  recordCompression(tokensBeforeCompression: number): void {
+    this.compressionCount += 1;
+    this.estimatedTokensConsumed += Math.max(
+      0,
+      Math.round(tokensBeforeCompression),
+    );
+    this.writeSessionStats();
+  }
+
+  getSessionStats(): {
+    estimatedTokensConsumed: number;
+    estimatedTokensCurrent: number;
+    compressionCount: number;
+  } {
+    return {
+      estimatedTokensConsumed: this.estimatedTokensConsumed,
+      estimatedTokensCurrent: this.estimateCurrentTokens(),
+      compressionCount: this.compressionCount,
+    };
+  }
+
+  /**
+   * DeepSeek CLI: restore the persisted counters when resuming a session.
+   * Older sessions have no `sessionStats`; they start from zero.
+   */
+  private seedSessionStatsFromRecord(): void {
+    const stats = this.cachedConversation?.sessionStats;
+    if (stats) {
+      this.estimatedTokensConsumed = stats.estimatedTokensConsumed ?? 0;
+      this.compressionCount = stats.compressionCount ?? 0;
+    } else {
+      this.estimatedTokensConsumed = 0;
+      this.compressionCount = 0;
+    }
+  }
+
   private pushMessage(msg: MessageRecord): void {
     if (!this.cachedConversation) return;
 
@@ -1017,13 +1129,17 @@ export class ChatRecordingService {
     displayContent?: PartListUnion,
     id?: string,
   ): MessageRecord {
-    return {
+    const record: MessageRecord = {
       id: id || randomUUID(),
       timestamp: new Date().toISOString(),
       type,
       content,
       displayContent,
     };
+    // DeepSeek CLI: persist an honest (chars/4) estimate per message — the
+    // DeepSeek web chat never returns real usage metadata.
+    record.estimatedTokens = estimatePartListTokens(content);
+    return record;
   }
 
   recordMessage(message: {
@@ -1052,6 +1168,7 @@ export class ChatRecordingService {
       }
       this.pushMessage(msg);
       this.updateMetadata({ lastUpdated: new Date().toISOString() });
+      this.writeSessionStats();
       return msg.id;
     } catch (error) {
       debugLogger.error('Error saving message to chat history.', error);

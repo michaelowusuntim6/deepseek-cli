@@ -46,6 +46,11 @@ export interface BaseMessageRecord {
   timestamp: string;
   content: PartListUnion;
   displayContent?: PartListUnion;
+  /**
+   * DeepSeek CLI: estimated token count for this message (`chars / 4`). The
+   * DeepSeek web chat returns no usage metadata, so this is always an estimate.
+   */
+  estimatedTokens?: number;
 }
 
 /**
@@ -95,6 +100,12 @@ export interface ConversationRecord {
   startTime: string;
   lastUpdated: string;
   messages: MessageRecord[];
+  /** DeepSeek CLI: cumulative (estimated) context accounting for this session. */
+  sessionStats?: {
+    estimatedTokensConsumed: number;
+    estimatedTokensCurrent: number;
+    compressionCount: number;
+  };
   summary?: string;
   memoryScratchpad?: MemoryScratchpad;
   /** Workspace directories added during the session via /dir add */

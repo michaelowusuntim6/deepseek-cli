@@ -708,6 +708,18 @@ export class ChatCompressionService {
       historyToCompressTruncated.length = 0;
       originalHistoryToCompress.length = 0;
 
+      // DeepSeek CLI: remember that a compression happened and how much
+      // (estimated) context it consumed, so the counters survive the session.
+      try {
+        chat
+          .getChatRecordingService()
+          ?.recordCompression(originalTokenCount);
+      } catch (error) {
+        debugLogger.debug(
+          `[session-stats] could not record compression: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+
       return {
         newHistory: extraHistory,
         info: {

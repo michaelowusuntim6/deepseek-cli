@@ -23,6 +23,8 @@ import {
 } from '../utils/displayUtils.js';
 import { computeSessionStats } from '../utils/computeStats.js';
 import { useSettings } from '../contexts/SettingsContext.js';
+import { useConfig } from '../contexts/ConfigContext.js';
+import { tokenLimit } from 'deepseek-cli-core';
 import type { QuotaStats } from '../types.js';
 import { LlmRole, getDisplayString } from 'deepseek-cli-core';
 
@@ -103,9 +105,11 @@ const ModelUsageTable: React.FC<ModelUsageTableProps> = ({ models }) => {
       name,
       displayName: getDisplayString(name),
       requests: metrics.api.totalRequests,
-      cachedTokens: metrics.tokens.cached.toLocaleString(),
-      inputTokens: metrics.tokens.prompt.toLocaleString(),
-      outputTokens: metrics.tokens.candidates.toLocaleString(),
+      // DeepSeek's web chat returns no usage metadata — show "-" instead of a
+      // misleading 0. The Context section below carries the honest estimate.
+      cachedTokens: '-',
+      inputTokens: '-',
+      outputTokens: '-',
       isSubRow: false,
     });
 
@@ -127,9 +131,11 @@ const ModelUsageTable: React.FC<ModelUsageTableProps> = ({ models }) => {
           name: `${name}-${role}`,
           displayName: `  ↳ ${role}`,
           requests: roleMetrics.totalRequests,
-          cachedTokens: roleMetrics.tokens.cached.toLocaleString(),
-          inputTokens: roleMetrics.tokens.prompt.toLocaleString(),
-          outputTokens: roleMetrics.tokens.candidates.toLocaleString(),
+          // DeepSeek's web chat returns no usage metadata, so token columns
+          // would always be 0. Show "-" rather than a misleading zero.
+          cachedTokens: '-',
+          inputTokens: '-',
+          outputTokens: '-',
           isSubRow: true,
         });
       });
@@ -253,6 +259,17 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
   const { tools, files, models } = metrics;
   const computed = computeSessionStats(metrics);
   const settings = useSettings();
+  const config = useConfig();
+
+  // DeepSeek CLI: context accounting. DeepSeek returns no usage metadata, so
+  // these are honest chars/4 estimates persisted with the session.
+  const sessionStats =
+    config?.getGeminiClient?.()?.getChatRecordingService?.()?.getSessionStats?.();
+  const contextWindow = tokenLimit(config?.getModel?.() ?? 'deepseek-expert');
+  const currentEstimate = sessionStats?.estimatedTokensCurrent ?? 0;
+  const consumedEstimate = sessionStats?.estimatedTokensConsumed ?? 0;
+  const compressionCount = sessionStats?.compressionCount ?? 0;
+  const formatEstimate = (value: number) => value.toLocaleString('en-US');
 
   const showUserIdentity = settings.merged.ui.showUserIdentity;
 
@@ -394,6 +411,34 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
       </Section>
 
       {Object.keys(models).length > 0 && <ModelUsageTable models={models} />}
+
+      <Section title="Context">
+        <StatRow title="Window:">
+          <Text color={theme.text.primary}>
+            {formatEstimate(contextWindow)} tokens (DeepSeek 1M)
+          </Text>
+        </StatRow>
+        <StatRow title="Current:">
+          <Text color={theme.text.primary}>
+            ~{formatEstimate(currentEstimate)} tokens (est., chars/4)
+          </Text>
+        </StatRow>
+        <StatRow title="Cumulative consumed:">
+          <Text color={theme.text.primary}>
+            ~{formatEstimate(consumedEstimate)} tokens (est., across all
+            compressions)
+          </Text>
+        </StatRow>
+        <StatRow title="Compressions:">
+          <Text color={theme.text.primary}>{compressionCount}</Text>
+        </StatRow>
+        <StatRow title="Free:">
+          <Text color={theme.text.primary}>
+            ~{formatEstimate(Math.max(0, contextWindow - currentEstimate))}{' '}
+            tokens (est.)
+          </Text>
+        </StatRow>
+      </Section>
 
       {renderFooter()}
     </Box>
