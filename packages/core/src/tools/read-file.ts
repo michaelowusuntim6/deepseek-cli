@@ -140,6 +140,7 @@ class ReadFileToolInvocation extends BaseToolInvocation<
     const validationError = this.config.validatePathAccess(
       targetPathToRead,
       'read',
+      'read_file',
     );
     if (validationError) {
       return {
@@ -292,6 +293,7 @@ export class ReadFileTool extends BaseDeclarativeTool<
     const validationError = this.config.validatePathAccess(
       resolvedPath,
       'read',
+      'read_file',
     );
     if (validationError) {
       return validationError;

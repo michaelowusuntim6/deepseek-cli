@@ -1611,10 +1611,17 @@ export class GeminiChat {
           );
         }
         if (finishReason === FinishReason.OTHER) {
-          throw new InvalidStreamError(
-            'Model stream ended due to other settings (OTHER) with empty response text.',
-            'OTHER_BLOCKED',
-          );
+          // DeepSeek CLI: FinishReason.OTHER is not a policy block here — it is
+          // how a generic/unknown stop is reported. Never kill the turn for it;
+          // fall through to the normal empty-response handling (which retries)
+          // and let any content or tool call that arrived be delivered.
+          if (process.env['DEBUG_DEEPSEEK']) {
+            console.error(
+              '[policy-block] reason=%s would-block-content-length=%d',
+              'OTHER',
+              responseText.length,
+            );
+          }
         }
         if (hasThoughts) {
           throw new InvalidStreamError(

@@ -1041,6 +1041,11 @@ export async function loadCliConfig(
       }
       return live.security?.autoApprove ?? true;
     },
+    // File tools may read/write anywhere by default; this opt-in protection
+    // blocks the user's home dotfiles (~/.ssh, ~/.aws, …).
+    restrictHomeDotfiles: () =>
+      (loadedSettings?.merged ?? settings).security?.restrictHomeDotfiles ===
+      true,
     disableYoloMode:
       settings.security?.disableYoloMode || settings.admin?.secureModeEnabled,
     disableAlwaysAllow:

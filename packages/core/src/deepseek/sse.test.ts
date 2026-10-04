@@ -44,6 +44,22 @@ describe('dsmlCallsToJson', () => {
     const incomplete = body + `<${BAR}DSML${BAR} invoke name="write_file">`;
     expect(dsmlCallsToJson(incomplete)).toHaveLength(1);
   });
+
+  it('accepts compact tags without the fullwidth DSML prefix', () => {
+    // The open invoke is qualified, the parameter/close tags are not.
+    const compact = `<${BAR}DSML${BAR} invoke name="run_shell_command">\n<parameter name="command">ls -la /tmp</parameter>\n</invoke>`;
+    const calls = dsmlCallsToJson(compact);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].arguments['command']).toBe('ls -la /tmp');
+  });
+
+  it('maps nested invoke blocks to parameters', () => {
+    const nested = `<${BAR}DSML${BAR} invoke name="read_file"><${BAR}DSML${BAR} invoke name="file_path">/tmp/x.txt</${BAR}DSML${BAR} invoke></${BAR}DSML${BAR} invoke>`;
+    const calls = dsmlCallsToJson(nested);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].name).toBe('read_file');
+    expect(calls[0].arguments['file_path']).toBe('/tmp/x.txt');
+  });
 });
 
 describe('SseFragmentParser DSML extraction', () => {
@@ -87,5 +103,34 @@ describe('SseFragmentParser DSML extraction', () => {
       )
       .concat(parser.flush());
     expect(parts.filter((p) => p.kind === 'tool_call')).toHaveLength(1);
+  });
+
+  it('tolerates duplicated/out-of-order <calls> wrappers (3 calls)', () => {
+    const batch =
+      INVOKE('run_shell_command', PARAM('command', 'ls -la /tmp')) +
+      `\n${CALLS_OPEN}\n` +
+      INVOKE('run_shell_command', PARAM('command', 'cat /etc/hostname')) +
+      `\n${CALLS_CLOSE}\n` +
+      INVOKE('run_shell_command', PARAM('command', 'echo done')) +
+      `\n${CALLS_CLOSE}`;
+    const parser = new SseFragmentParser();
+    const parts = parser
+      .feedPayload(
+        JSON.stringify({
+          p: 'response/fragments',
+          o: 'APPEND',
+          v: [{ type: 'RESPONSE', content: batch }],
+        }),
+      )
+      .concat(parser.flush());
+    const calls = parts
+      .filter((p) => p.kind === 'tool_call')
+      .map((p) => JSON.parse(p.text));
+    expect(calls).toHaveLength(3);
+    expect(calls.map((c) => c.arguments.command)).toEqual([
+      'ls -la /tmp',
+      'cat /etc/hostname',
+      'echo done',
+    ]);
   });
 });

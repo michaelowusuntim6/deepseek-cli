@@ -184,7 +184,12 @@ import { SkillManager, type SkillDefinition } from '../skills/skillManager.js';
 import { startupProfiler } from '../telemetry/startupProfiler.js';
 import type { AgentDefinition } from '../agents/types.js';
 import { fetchAdminControls } from '../code_assist/admin/admin_controls.js';
-import { isSubpath, resolveToRealPath } from '../utils/paths.js';
+import {
+  APP_DIR_NAME,
+  homedir,
+  isSubpath,
+  resolveToRealPath,
+} from '../utils/paths.js';
 import { validatePath } from '../utils/path-validator.js';
 import { InjectionService } from './injectionService.js';
 import { ExecutionLifecycleService } from '../services/executionLifecycleService.js';
@@ -630,6 +635,12 @@ export interface ConfigParameters {
    * correctly. Defaults to disabled when not provided (e.g. in unit tests).
    */
   getAutoApprove?: () => boolean;
+  /**
+   * DeepSeek CLI: when true, file tools refuse paths that point at the user's
+   * home dotfiles (e.g. ~/.ssh). Off by default — the agent may read and write
+   * anywhere the user can, except kernel interfaces.
+   */
+  restrictHomeDotfiles?: () => boolean;
   showMemoryUsage?: boolean;
   contextFileName?: string | string[];
   accessibility?: AccessibilitySettings;
@@ -928,6 +939,7 @@ export class Config implements McpContext, AgentLoopContext {
   readonly messageBus: MessageBus;
   private readonly policyEngine: PolicyEngine;
   private readonly getAutoApprove?: () => boolean;
+  private readonly restrictHomeDotfiles?: () => boolean;
   private policyUpdateConfirmationRequest:
     | PolicyUpdateConfirmationRequest
     | undefined;
@@ -1041,6 +1053,7 @@ export class Config implements McpContext, AgentLoopContext {
 
     this._sandboxPolicyManager = new SandboxPolicyManager();
     this.getAutoApprove = params.getAutoApprove;
+    this.restrictHomeDotfiles = params.restrictHomeDotfiles;
     const initialApprovalMode =
       params.approvalMode ??
       params.policyEngineConfig?.approvalMode ??
@@ -3406,6 +3419,7 @@ export class Config implements McpContext, AgentLoopContext {
   validatePathAccess(
     absolutePath: string,
     checkType: 'read' | 'write' = 'write',
+    toolName = 'path',
   ): string | null {
     const pathValidation = validatePath(absolutePath);
     if (!pathValidation.isValid) {
@@ -3454,15 +3468,59 @@ export class Config implements McpContext, AgentLoopContext {
       }
     }
 
-    // Then check standard allowed paths (Workspace + Temp)
-    // This covers 'write' checks and acts as a fallback/temp-dir check for 'read'
-    if (this.isPathAllowed(absolutePath)) {
-      return null;
+    // DeepSeek CLI: file tools are NOT restricted to the workspace. A coding
+    // agent must be able to read and write anywhere the user can. Only kernel
+    // interfaces are denied outright (and, optionally, home dotfiles when the
+    // user explicitly turns that protection on).
+    const resolvedPath = resolveToRealPath(path.resolve(absolutePath));
+    const kernelDeny = ['/proc', '/sys', '/dev'];
+    const blockedKernelPath = kernelDeny.find(
+      (dir) => resolvedPath === dir || isSubpath(dir, resolvedPath),
+    );
+    if (blockedKernelPath) {
+      if (process.env['DEBUG_DEEPSEEK']) {
+        console.error(
+          '[path] tool=%s path=%s resolved=%s allowed=%s',
+          toolName,
+          absolutePath,
+          resolvedPath,
+          false,
+        );
+      }
+      return `Blocked kernel path: "${absolutePath}" is under ${blockedKernelPath}.`;
     }
 
-    const workspaceDirs = this.getWorkspaceContext().getDirectories();
-    const projectTempDir = this.storage.getProjectTempDir();
-    return `Path not in workspace: Attempted path "${absolutePath}" resolves outside the allowed workspace directories: ${workspaceDirs.join(', ')} or the project temp directory: ${projectTempDir}`;
+    const home = homedir();
+    const isHomeDotfile =
+      resolvedPath.startsWith(path.join(home, '.')) &&
+      !resolvedPath.startsWith(path.join(home, APP_DIR_NAME));
+    if (isHomeDotfile && this.getRestrictHomeDotfiles()) {
+      if (process.env['DEBUG_DEEPSEEK']) {
+        console.error(
+          '[path] tool=%s path=%s resolved=%s allowed=%s',
+          toolName,
+          absolutePath,
+          resolvedPath,
+          false,
+        );
+      }
+      return `Home dotfiles are protected: "${absolutePath}". Disable security.restrictHomeDotfiles to allow it.`;
+    }
+
+    if (process.env['DEBUG_DEEPSEEK']) {
+      console.error(
+        '[path] tool=%s path=%s resolved=%s allowed=%s',
+        toolName,
+        absolutePath,
+        resolvedPath,
+        true,
+      );
+    }
+    return null;
+  }
+
+  private getRestrictHomeDotfiles(): boolean {
+    return this.restrictHomeDotfiles?.() ?? false;
   }
 
   /**

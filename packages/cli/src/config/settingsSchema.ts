@@ -1973,6 +1973,16 @@ const SETTINGS_SCHEMA = {
           'Run tool calls without asking for approval (DeepSeek CLI default). Set to false to be prompted.',
         showInDialog: true,
       },
+      restrictHomeDotfiles: {
+        type: 'boolean',
+        label: 'Protect home dotfiles',
+        category: 'Security',
+        requiresRestart: false,
+        default: false,
+        description:
+          'When enabled, file tools refuse paths inside the user home directory that start with a dot (e.g. ~/.ssh, ~/.aws). Off by default: the agent may read and write anywhere except kernel interfaces.',
+        showInDialog: true,
+      },
       toolSandboxing: {
         type: 'boolean',
         label: 'Tool Sandboxing',

@@ -230,10 +230,19 @@ export class DeepSeekContentGenerator implements ContentGenerator {
     }
     const tools = toolDeclarations(request);
     if (tools && !this.conversationId) {
+      const BAR = '\uFF5C\uFF5C';
       sections.push(
         'Available tools (call them with your native tool-call markup; ' +
           'DSML invoke blocks or <tool_call>{"name":..,"arguments":{..}}</tool_call> ' +
           'are both accepted):\n' +
+          'When you call multiple tools, wrap them in exactly ONE pair of ' +
+          `calls tags, with one invoke per tool and nothing else between them:\n` +
+          `<${BAR}DSML${BAR} calls>\n` +
+          `<${BAR}DSML${BAR} invoke name="tool_one"> ... </${BAR}DSML${BAR} invoke>\n` +
+          `<${BAR}DSML${BAR} invoke name="tool_two"> ... </${BAR}DSML${BAR} invoke>\n` +
+          `</${BAR}DSML${BAR} calls>\n` +
+          'Do not emit multiple calls wrappers. Do not put calls tags inside ' +
+          'an invoke. One wrapper, N invokes, nothing else.\n' +
           tools,
       );
     }
@@ -347,6 +356,31 @@ export class DeepSeekContentGenerator implements ContentGenerator {
     const prompt = isUtility
       ? latestUserText(request) || flattenContents(request)
       : this.buildPrompt(request);
+    if (process.env['DEBUG_DEEPSEEK']) {
+      const history = (request.contents ?? []) as Array<{
+        role?: string;
+        parts?: Array<Record<string, unknown>>;
+      }>;
+      console.error(
+        '[request] history_len=%d last_role=%s',
+        history.length,
+        history[history.length - 1]?.role ?? 'none',
+      );
+      for (const content of history) {
+        for (const part of content.parts ?? []) {
+          const fr = (part as { functionResponse?: { name?: string; response?: unknown } })
+            .functionResponse;
+          if (fr?.name) {
+            console.error(
+              '[tool-result] name=%s chars=%d queued=%s',
+              fr.name,
+              JSON.stringify(fr.response ?? {}).length,
+              true,
+            );
+          }
+        }
+      }
+    }
     this.requestCount += 1;
     if (process.env['DEBUG_DEEPSEEK']) {
       // Fix 1 audit: exactly one of these per user turn.
@@ -417,7 +451,17 @@ export class DeepSeekContentGenerator implements ContentGenerator {
     // produced thoughts but no answer, which triggers the "you previously
     // generated thoughts" continuation. Report it as a blocked stream instead
     // so the harness retries the same request cleanly.
-    yield makeResponse([], streamFinished ? 'STOP' : 'OTHER');
+    if (!streamFinished) {
+      // DeepSeek ended the stream without the FINISHED marker (server-side
+      // generation error). Deliver whatever we received instead of reporting a
+      // generic "OTHER" finish reason, which the harness renders as
+      // "The model response was blocked due to other policy settings." and
+      // kills the turn for.
+      console.error(
+        '[deepseek-stream] server ended the stream without FINISHED; delivering partial result',
+      );
+    }
+    yield makeResponse([], 'STOP');
   }
 
   async generateContent(
