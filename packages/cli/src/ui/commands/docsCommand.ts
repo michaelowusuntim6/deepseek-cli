@@ -19,7 +19,8 @@ export const docsCommand: SlashCommand = {
   kind: CommandKind.BUILT_IN,
   autoExecute: true,
   action: async (context: CommandContext): Promise<void> => {
-    const docsUrl = 'https://goo.gle/gemini-cli-docs';
+    const docsUrl =
+      'https://github.com/michaelowusuntim6/deepseek-cli/tree/main/docs';
 
     if (process.env['SANDBOX'] && process.env['SANDBOX'] !== 'sandbox-exec') {
       context.ui.addItem(

@@ -267,7 +267,10 @@ const SETTINGS_SCHEMA = {
         label: 'Enable Auto Update Notification',
         category: 'General',
         requiresRestart: false,
-        default: true,
+        // DeepSeek CLI fork: the upstream check queries Google's npm registry
+        // for the Gemini CLI package and tells the user to `git pull` Google's
+        // repo, which is meaningless here. Off by default.
+        default: false,
         description: 'Enable update notification prompts.',
         showInDialog: false,
       },

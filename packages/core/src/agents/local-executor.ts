@@ -1125,7 +1125,7 @@ export class LocalAgentExecutor<TOutput extends z.ZodTypeAny> {
     } catch (e: unknown) {
       await reportError(
         e,
-        `Error initializing Gemini chat for agent ${this.definition.name}.`,
+        `Error initializing chat for agent ${this.definition.name}.`,
         startHistory,
         'startChat',
       );

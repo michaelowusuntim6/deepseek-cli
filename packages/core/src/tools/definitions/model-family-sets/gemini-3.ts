@@ -97,7 +97,8 @@ export const GEMINI_3_SET: CoreToolSet = {
       type: 'object',
       properties: {
         [PARAM_FILE_PATH]: {
-          description: 'The path to the file to read.',
+          description:
+            'Absolute or relative path to the file. Use this parameter name, not `absolute_path`.',
           type: 'string',
         },
         [READ_FILE_PARAM_START_LINE]: {
@@ -124,7 +125,8 @@ export const GEMINI_3_SET: CoreToolSet = {
       type: 'object',
       properties: {
         [PARAM_FILE_PATH]: {
-          description: 'Path to the file.',
+          description:
+            'Absolute or relative path to the file. Use this parameter name, not `absolute_path`.',
           type: 'string',
         },
         [WRITE_FILE_PARAM_CONTENT]: {
@@ -310,7 +312,8 @@ export const GEMINI_3_SET: CoreToolSet = {
       type: 'object',
       properties: {
         [PARAM_DIR_PATH]: {
-          description: 'The path to the directory to list',
+          description:
+            'Absolute or relative path to the directory to list. Use this parameter name, not `absolute_path`.',
           type: 'string',
         },
         [LS_PARAM_IGNORE]: {
@@ -361,7 +364,8 @@ The user has the ability to modify the \`new_string\` content. If modified, this
       type: 'object',
       properties: {
         [PARAM_FILE_PATH]: {
-          description: 'The path to the file to modify.',
+          description:
+            'Absolute or relative path to the file to modify. Use this parameter name, not `absolute_path`.',
           type: 'string',
         },
         [EDIT_PARAM_INSTRUCTION]: {
@@ -395,7 +399,7 @@ The user has the ability to modify the \`new_string\` content. If modified, this
 
   google_web_search: {
     name: WEB_SEARCH_TOOL_NAME,
-    description: `Performs a grounded Google Search to find information across the internet. Returns a synthesized answer with citations (e.g., [1]) and source URIs. Best for finding up-to-date documentation, troubleshooting obscure errors, or broad research. Use this when you don't have a specific URL. If a search result requires deeper analysis, follow up by using '${WEB_FETCH_TOOL_NAME}' on the provided URI.`,
+    description: `Performs a grounded web search to find information across the internet. Returns a synthesized answer with citations (e.g., [1]) and source URIs. Best for finding up-to-date documentation, troubleshooting obscure errors, or broad research. Use this when you don't have a specific URL. If a search result requires deeper analysis, follow up by using '${WEB_FETCH_TOOL_NAME}' on the provided URI.`,
     parametersJsonSchema: {
       type: 'object',
       properties: {

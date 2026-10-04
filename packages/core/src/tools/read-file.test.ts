@@ -114,6 +114,21 @@ describe('ReadFileTool', () => {
       );
     });
 
+    it('accepts the absolute_path alias and normalises it to file_path', () => {
+      // DeepSeek sometimes emits `absolute_path`; the alias must be accepted on
+      // the first call instead of failing validation.
+      const result = tool.build({
+        absolute_path: 'test.txt',
+      } as unknown as ReadFileToolParams);
+      expect(typeof result).not.toBe('string');
+      expect(
+        (result.params as ReadFileToolParams).file_path,
+      ).toBe('test.txt');
+      expect(result.toolLocations()[0].path).toBe(
+        path.join(tempRootDir, 'test.txt'),
+      );
+    });
+
     it('should throw error if path is outside root', () => {
       const params: ReadFileToolParams = {
         file_path: '/outside/root.txt',

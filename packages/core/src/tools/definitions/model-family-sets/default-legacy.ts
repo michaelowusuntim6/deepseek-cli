@@ -88,7 +88,8 @@ export const DEFAULT_LEGACY_SET: CoreToolSet = {
       type: 'object',
       properties: {
         [PARAM_FILE_PATH]: {
-          description: 'The path to the file to read.',
+          description:
+            'Absolute or relative path to the file. Use this parameter name, not `absolute_path`.',
           type: 'string',
         },
         [READ_FILE_PARAM_START_LINE]: {
@@ -117,7 +118,8 @@ export const DEFAULT_LEGACY_SET: CoreToolSet = {
       type: 'object',
       properties: {
         [PARAM_FILE_PATH]: {
-          description: 'The path to the file to write to.',
+          description:
+            'Absolute or relative path to the file to write to. Use this parameter name, not `absolute_path`.',
           type: 'string',
         },
         [WRITE_FILE_PARAM_CONTENT]: {
@@ -303,7 +305,8 @@ export const DEFAULT_LEGACY_SET: CoreToolSet = {
       type: 'object',
       properties: {
         [PARAM_DIR_PATH]: {
-          description: 'The path to the directory to list',
+          description:
+            'Absolute or relative path to the directory to list. Use this parameter name, not `absolute_path`.',
           type: 'string',
         },
         [LS_PARAM_IGNORE]: {
@@ -364,7 +367,8 @@ export const DEFAULT_LEGACY_SET: CoreToolSet = {
       type: 'object',
       properties: {
         [PARAM_FILE_PATH]: {
-          description: 'The path to the file to modify.',
+          description:
+            'Absolute or relative path to the file to modify. Use this parameter name, not `absolute_path`.',
           type: 'string',
         },
         [EDIT_PARAM_INSTRUCTION]: {
@@ -413,7 +417,7 @@ A good instruction should concisely answer:
   google_web_search: {
     name: WEB_SEARCH_TOOL_NAME,
     description:
-      'Performs a web search using Google Search (via the Gemini API) and returns the results. This tool is useful for finding information on the internet based on a query.',
+      'Performs a web search and returns the results. This tool is useful for finding information on the internet based on a query.',
     parametersJsonSchema: {
       type: 'object',
       properties: {

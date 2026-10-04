@@ -1,9 +1,9 @@
 ```
-  ____                 ____            _    ____ _     ___
- |  _ \  ___  ___ ___ / ___|  ___  ___| | _|  _ \_   _|_ _|
- | | | |/ _ \/ _ \ __|\___ \ / _ \/ __| |/ / | | || |  | |
- | |_| |  __/  __\__  ___) |  __/ (__|   <| |_| || |  | |
- |____/ \___|\___|___|____/ \___|\___|_|\_\____/ |_| |___|
+================================
+     DeepSeek CLI
+================================
+A terminal-based coding agent for the DeepSeek web chat.
+Made by Michael Owusu Ntim.
 ```
 
 # DeepSeek CLI
@@ -28,8 +28,8 @@ user-facing Google branding.
   via the `search_enabled` payload flag.
 - **YOLO default**: tool calls auto-approve out of the box (`security.autoApprove`,
   default `true`).
-- **Resume and session persistence**: every run writes a session under
-  `~/.gemini/tmp/gemini-cli-custom/chats/`; resume with `--resume latest`.
+- **Resume and session persistence**: every run writes a session under the CLI
+  temp directory (`~/.gemini/tmp/<project>/chats/`); resume with `--resume latest`.
 - **DEEPSEEK.md context**: project context is loaded from `DEEPSEEK.md`, with
   `GEMINI.md` still honored as a fallback for upstream projects.
 - **Multi-step tool use**: read files, run shell commands, write and modify
@@ -42,7 +42,7 @@ user-facing Google branding.
 From this repository:
 
 ```bash
-cd gemini-cli_custom
+cd /path/to/this/repository
 npm install
 npm run build
 node packages/cli/dist/index.js

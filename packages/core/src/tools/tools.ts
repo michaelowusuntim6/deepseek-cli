@@ -679,6 +679,72 @@ export abstract class DeclarativeTool<
 }
 
 /**
+ * Parameter aliases DeepSeek (and other models) emit instead of the exact JSON
+ * schema property name. Keyed by the canonical property name; only applied when
+ * the canonical property is missing and the schema lists it as required.
+ */
+const TOOL_PARAM_ALIASES: Record<string, readonly string[]> = {
+  file_path: [
+    'absolute_path',
+    'abs_path',
+    'filepath',
+    'file',
+    'filename',
+    'path',
+  ],
+  dir_path: ['directory', 'directory_path', 'abs_path', 'dir', 'path'],
+  old_string: ['old_str', 'search'],
+  new_string: ['new_str', 'replace'],
+};
+
+/**
+ * Maps well-known parameter aliases (e.g. `absolute_path`) onto the property
+ * name the tool schema actually declares (e.g. `file_path`). Returns the same
+ * object when there is nothing to normalise.
+ */
+export function normalizeToolParamAliases<TParams extends object>(
+  schema: unknown,
+  params: TParams,
+): TParams {
+  if (!params || typeof params !== 'object' || !schema) {
+    return params;
+  }
+  const schemaRecord = schema as Record<string, unknown>;
+  const required = Array.isArray(schemaRecord['required'])
+    ? (schemaRecord['required'] as unknown[]).filter(
+        (name): name is string => typeof name === 'string',
+      )
+    : [];
+  if (required.length === 0) {
+    return params;
+  }
+
+  const original = params as Record<string, unknown>;
+  let normalized: Record<string, unknown> | undefined;
+
+  for (const canonical of required) {
+    const aliases = TOOL_PARAM_ALIASES[canonical];
+    if (!aliases) {
+      continue;
+    }
+    const current = normalized ?? original;
+    if (current[canonical] !== undefined && current[canonical] !== null) {
+      continue;
+    }
+    for (const alias of aliases) {
+      const value = current[alias];
+      if (typeof value === 'string' && value.length > 0) {
+        normalized ??= { ...original };
+        normalized[canonical] = value;
+        break;
+      }
+    }
+  }
+
+  return (normalized as TParams | undefined) ?? params;
+}
+
+/**
  * New base class for declarative tools that separates validation from execution.
  * New tools should extend this class, which provides a `build` method that
  * validates parameters before deferring to a `createInvocation` method for
@@ -689,12 +755,18 @@ export abstract class BaseDeclarativeTool<
   TResult extends ToolResult,
 > extends DeclarativeTool<TParams, TResult> {
   build(params: TParams): ToolInvocation<TParams, TResult> {
-    const validationError = this.validateToolParams(params);
+    // Fix 1: normalise common parameter aliases (e.g. `absolute_path`) before
+    // validating so the model's first attempt succeeds instead of wasting a turn.
+    const normalizedParams = normalizeToolParamAliases(
+      this.schema.parametersJsonSchema,
+      params,
+    );
+    const validationError = this.validateToolParams(normalizedParams);
     if (validationError) {
       throw new Error(validationError);
     }
     return this.createInvocation(
-      params,
+      normalizedParams,
       this.messageBus,
       this.name,
       this.displayName,
@@ -702,15 +774,19 @@ export abstract class BaseDeclarativeTool<
   }
 
   override validateToolParams(params: TParams): string | null {
-    const errors = SchemaValidator.validate(
+    const normalizedParams = normalizeToolParamAliases(
       this.schema.parametersJsonSchema,
       params,
+    );
+    const errors = SchemaValidator.validate(
+      this.schema.parametersJsonSchema,
+      normalizedParams,
     );
 
     if (errors) {
       return errors;
     }
-    return this.validateToolParamValues(params);
+    return this.validateToolParamValues(normalizedParams);
   }
 
   protected validateToolParamValues(_params: TParams): string | null {

@@ -70,3 +70,13 @@ temp_agents/
 conductor/
 .vscode-test/
 **/dist/
+
+# Working files — not part of the shipped repo
+*_TODO.md
+TODO_LIST.md
+REBRAND_TODO.md
+FIX_TODO.md
+CLEANUP_TODO.md
+PORT_TODO.md
+EVAL_TODO.md
+SLASH_COMMANDS.md

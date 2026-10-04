@@ -40,8 +40,11 @@ export function computeTerminalTitle({
 }: TerminalTitleOptions): string {
   const MAX_LEN = 80;
 
-  // Use CLI_TITLE env var if available, otherwise use the provided folder name
-  let displayContext = process.env['CLI_TITLE'] || folderName;
+  // DeepSeek CLI fork: the checkout directory is `gemini-cli_custom`, which is
+  // meaningless in the terminal title. Use CLI_TITLE when set; otherwise fall
+  // back to the folder name, except for the fork's own upstream-named checkout.
+  const folderLabel = /gemini-cli/i.test(folderName) ? 'DeepSeek CLI' : folderName;
+  let displayContext = process.env['CLI_TITLE'] || folderLabel;
 
   if (!useDynamicTitle) {
     const base = 'DeepSeek CLI ';

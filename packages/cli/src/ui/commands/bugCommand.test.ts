@@ -147,7 +147,7 @@ describe('bugCommand', () => {
 * **Kitty Keyboard Protocol:** Supported
 * **IDE Client:** VSCode
 `;
-    const expectedUrl = `https://github.com/google-gemini/gemini-cli/issues/new?template=bug_report.yml&title=A%20test%20bug&info=${encodeURIComponent(expectedInfo)}&problem=A%20test%20bug`;
+    const expectedUrl = `https://github.com/michaelowusuntim6/deepseek-cli/issues/new?template=bug_report.yml&title=A%20test%20bug&info=${encodeURIComponent(expectedInfo)}&problem=A%20test%20bug`;
 
     expect(open).toHaveBeenCalledWith(expectedUrl);
   });

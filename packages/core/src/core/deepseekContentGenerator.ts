@@ -266,14 +266,28 @@ export class DeepSeekContentGenerator implements ContentGenerator {
       try {
         const parsed = JSON.parse(part.text) as {
           name?: string;
-          arguments?: Record<string, unknown>;
+          arguments?: unknown;
         };
         if (parsed?.name) {
+          // Fix 1.3: DSML sometimes encodes `arguments` as a JSON *string*
+          // instead of an object (e.g. "{\"file_path\": \"...\"}"). Parse it so
+          // the first tool call does not fail validation and waste a turn.
+          let args = parsed.arguments;
+          if (typeof args === 'string') {
+            try {
+              args = JSON.parse(args);
+            } catch {
+              // Leave as-is; the schema validator will explain the problem.
+            }
+          }
           return [
             {
               functionCall: {
                 name: parsed.name,
-                args: parsed.arguments ?? {},
+                args:
+                  args && typeof args === 'object'
+                    ? (args as Record<string, unknown>)
+                    : {},
               },
             },
           ];
@@ -332,6 +346,10 @@ export class DeepSeekContentGenerator implements ContentGenerator {
     });
     let result = await generator.next();
     while (!result.done) {
+      if (process.env['DEBUG_DEEPSEEK'] && result.value.kind === 'tool_call') {
+        // Fix 1 audit: shows the exact parameter names DeepSeek emitted.
+        console.error(`[deepseek-tool-call] ${result.value.text}`);
+      }
       const parts = this.toParts(result.value);
       if (parts.length) {
         yield makeResponse(parts);
