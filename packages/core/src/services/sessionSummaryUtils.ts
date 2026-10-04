@@ -8,6 +8,7 @@ import type { Config } from '../config/config.js';
 import { SessionSummaryService } from './sessionSummaryService.js';
 import { BaseLlmClient } from '../core/baseLlmClient.js';
 import { debugLogger } from '../utils/debugLogger.js';
+import { trackUtilityPromise } from '../utils/pendingUtilityPromises.js';
 import {
   SESSION_FILE_PREFIX,
   loadConversationRecord,
@@ -552,7 +553,50 @@ export async function getPreviousSession(
  * Generates summary metadata for the previous session if it lacks a scratchpad.
  * This is designed to be called fire-and-forget on startup.
  */
-export async function generateSummary(config: Config): Promise<void> {
+export function generateSummary(config: Config): Promise<void> {
+  // Track the work so the shutdown path can wait for the DeepSeek request to
+  // come back before the process exits.
+  return trackUtilityPromise(generateSummaryInternal(config));
+}
+
+/**
+ * DeepSeek CLI: generate and persist a title/summary for the *current* session.
+ * Headless runs (`-p`) never went through the TUI path that summarises the
+ * previous session, so no session ever got a title. This runs the same
+ * summariser for the session that just finished and is awaited (bounded) at
+ * shutdown.
+ */
+export async function summarizeCurrentSession(
+  config: Config,
+  timeoutMs = 5000,
+): Promise<void> {
+  try {
+    const recordingService = config.getGeminiClient?.()?.getChatRecordingService?.();
+    const sessionPath = recordingService?.getConversationFilePath?.();
+    if (!sessionPath) {
+      return;
+    }
+    const promise = trackUtilityPromise(
+      generateAndSaveSummary(config, sessionPath),
+    );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      promise.catch(() => undefined),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, timeoutMs);
+      }),
+    ]);
+    if (timer) {
+      clearTimeout(timer);
+    }
+  } catch (error) {
+    debugLogger.debug(
+      `[SessionSummary] Could not summarise the current session: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+async function generateSummaryInternal(config: Config): Promise<void> {
   try {
     const sessionPath = await getPreviousSession(config);
     if (sessionPath) {

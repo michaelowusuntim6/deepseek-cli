@@ -391,9 +391,22 @@ export class DeepSeekContentGenerator implements ContentGenerator {
     const priorConversationId = isUtility
       ? this.utilityConversationId
       : this.conversationId;
+    // Utility calls (summarizer, compressor, router, ...) must see exactly
+    // what the caller handed us — the whole contents array, including the
+    // history they are asked to work on. They deliberately do NOT get the
+    // system preamble, DEEPSEEK.md/AGENTS.md context or the tool schema.
     const prompt = isUtility
-      ? latestUserText(request) || flattenContents(request)
+      ? flattenContents(request)
       : this.buildPrompt(request);
+    if (process.env['DEBUG_DEEPSEEK']) {
+      const contents = request.contents;
+      console.error(
+        '[utility-prompt] role=%s contents_blocks=%d prompt_chars=%d',
+        role,
+        Array.isArray(contents) ? contents.length : 0,
+        prompt.length,
+      );
+    }
     if (process.env['DEBUG_DEEPSEEK']) {
       const history = (request.contents ?? []) as Array<{
         role?: string;

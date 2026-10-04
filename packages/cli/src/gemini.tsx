@@ -38,6 +38,7 @@ import {
   getProjectHash,
   loadConversationRecord,
   type MessageRecord,
+  summarizeCurrentSession,
 } from 'deepseek-cli-core';
 
 import { loadCliConfig, parseArguments } from './config/config.js';
@@ -997,6 +998,9 @@ export async function main() {
       prompt_id,
       resumedSessionData,
     });
+    // DeepSeek CLI: headless runs never generated a session title. Generate one
+    // for the session we just finished (bounded) before tearing down.
+    await summarizeCurrentSession(config);
     // Call cleanup before process.exit, which causes cleanup to not run
     await runExitCleanup();
     process.exit(ExitCodes.SUCCESS);

@@ -12,6 +12,7 @@ import {
   isTelemetrySdkInitialized,
   ExitCodes,
   resetBrowserSession,
+  awaitPendingUtilityPromises,
 } from 'deepseek-cli-core';
 import type { Config } from 'deepseek-cli-core';
 
@@ -73,6 +74,10 @@ export function registerTelemetryConfig(config: Config) {
 }
 
 export async function runExitCleanup() {
+  // DeepSeek CLI: let outstanding background utility calls (session titles /
+  // summaries) finish before we tear the process down.
+  await awaitPendingUtilityPromises(5000);
+
   // drain stdin to prevent printing garbage on exit
   // https://github.com/google-gemini/gemini-cli/issues/16801
   await drainStdin();

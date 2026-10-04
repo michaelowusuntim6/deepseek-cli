@@ -15,6 +15,7 @@ vi.mock('deepseek-cli-core', () => ({
   })),
   shutdownTelemetry: vi.fn(),
   isTelemetrySdkInitialized: vi.fn().mockReturnValue(false),
+  awaitPendingUtilityPromises: vi.fn().mockResolvedValue(undefined),
   ExitCodes: { SUCCESS: 0 },
 }));
 
