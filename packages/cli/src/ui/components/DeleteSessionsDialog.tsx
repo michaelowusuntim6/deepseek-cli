@@ -128,8 +128,7 @@ export function DeleteSessionsDialog({
     };
   }, [config]);
 
-  const shortId = (session: SessionInfo) =>
-    (session.id ?? '').slice(0, 8);
+  const shortId = (session: SessionInfo) => (session.id ?? '').slice(0, 8);
 
   const handleConfirm = useCallback(async () => {
     const recording = config?.getGeminiClient?.()?.getChatRecordingService?.();
@@ -177,6 +176,10 @@ export function DeleteSessionsDialog({
             return true;
           }
           setChosen(parsed.indices.map((i) => sessions![i - 1]));
+          // Clear the selection text so the confirmation prompt starts empty;
+          // otherwise typing "yes" appends to the numbers ("1yes") and the
+          // confirmation is read as a cancel.
+          setInput('');
           setPhase('confirm');
           return true;
         }
@@ -243,7 +246,10 @@ export function DeleteSessionsDialog({
               </Text>
             )}
           </Box>
-          <Text color={theme.text.accent}>{'> '}{input}</Text>
+          <Text color={theme.text.accent}>
+            {'> '}
+            {input}
+          </Text>
         </>
       )}
       {phase === 'confirm' && (
@@ -264,16 +270,15 @@ export function DeleteSessionsDialog({
           <Text color={theme.text.secondary}>
             Type &apos;yes&apos; to confirm, anything else to cancel:
           </Text>
-          <Text color={theme.text.accent}>{'> '}{input}</Text>
+          <Text color={theme.text.accent}>
+            {'> '}
+            {input}
+          </Text>
         </>
       )}
-      {phase === 'done' && (
-        <Text color={theme.status.success}>{status}</Text>
-      )}
+      {phase === 'done' && <Text color={theme.status.success}>{status}</Text>}
       {warnings.length > 0 && phase === 'confirm' && (
-        <Text color={theme.status.warning}>
-          Ignored: {warnings.join('; ')}
-        </Text>
+        <Text color={theme.status.warning}>Ignored: {warnings.join('; ')}</Text>
       )}
       {status && phase === 'select' && (
         <Text color={theme.text.secondary}>{status}</Text>
