@@ -26,8 +26,9 @@ export const searchCommand: SlashCommand = {
       <BooleanSettingDialog
         title="DeepSeek web search"
         settingKey="deepseek.webSearch"
+        companionSettingKey="deepseek.thinking"
         defaultValue={true}
-        description="When on, the DeepSeek payload sends search_enabled=true. Takes effect on the next request."
+        description="Web search and thinking cannot both be on. Enabling this turns thinking off. Takes effect on the next request."
         onClose={context.ui.removeComponent}
       />
     ),

@@ -280,6 +280,26 @@ export class DeepSeekContentGenerator implements ContentGenerator {
               // Leave as-is; the schema validator will explain the problem.
             }
           }
+          // DeepSeek occasionally double-wraps the payload:
+          // {"name":"read_file","arguments":{"arguments":"{\"path\":...}"}}.
+          // Unwrap the single `arguments` key so the call reaches the tool.
+          if (args && typeof args === 'object' && !Array.isArray(args)) {
+            const wrapper = args as Record<string, unknown>;
+            const keys = Object.keys(wrapper);
+            if (keys.length === 1 && keys[0] === 'arguments') {
+              let inner = wrapper['arguments'];
+              if (typeof inner === 'string') {
+                try {
+                  inner = JSON.parse(inner);
+                } catch {
+                  // keep the original value
+                }
+              }
+              if (inner && typeof inner === 'object') {
+                args = inner;
+              }
+            }
+          }
           return [
             {
               functionCall: {

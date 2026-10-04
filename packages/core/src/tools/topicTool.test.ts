@@ -118,21 +118,14 @@ describe('UpdateTopicTool', () => {
     expect(result.llmContent).toBe('Strategic Intent: Subsequent Move');
   });
 
-  it('should return error if strategic_intent is missing', async () => {
-    try {
-      tool.build({
-        [TOPIC_PARAM_TITLE]: 'Title',
-      });
-      expect.fail('Should have thrown validation error');
-    } catch (e: unknown) {
-      if (e instanceof Error) {
-        expect(e.message).toContain(
-          "must have required property 'strategic_intent'",
-        );
-      } else {
-        expect.fail('Expected Error instance');
-      }
-    }
-    expect(mockConfig.topicState.getTopic()).toBeUndefined();
+  it('should succeed without strategic_intent (now optional)', async () => {
+    const invocation = tool.build({
+      [TOPIC_PARAM_TITLE]: 'Title',
+    });
+    const result = await invocation.execute({
+      abortSignal: new AbortController().signal,
+    });
+    expect(mockConfig.topicState.getTopic()).toBe('Title');
+    expect(result.llmContent).toContain('Current topic: "Title"');
   });
 });

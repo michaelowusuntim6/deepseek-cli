@@ -23,6 +23,7 @@ import {
   createCache,
   isFileAndDirectorySecureSync,
   createPathSecurityCache,
+  debugLogger,
 } from '@google/gemini-cli-core';
 import stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/builtin/light/default-light.js';
@@ -270,7 +271,7 @@ export function mergeSettings(
   // 4. Workspace Settings
   // 5. System Settings (as overrides)
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return customDeepMerge(
+  const merged = customDeepMerge(
     getMergeStrategyForPath,
     schemaDefaults,
     systemDefaults,
@@ -278,6 +279,25 @@ export function mergeSettings(
     safeWorkspace,
     system,
   ) as MergedSettings;
+  return enforceDeepSeekMutualExclusion(merged);
+}
+
+/**
+ * DeepSeek CLI: `deepseek.thinking` and `deepseek.webSearch` are mutually
+ * exclusive — the DeepSeek web chat fails tool-using turns when both are on
+ * (see the FINISHED-marker fix). The settings layer enforces the invariant so
+ * the pickers, the settings file and the request payload can never disagree.
+ * Thinking wins because a broken turn is worse than a missing search.
+ */
+export function enforceDeepSeekMutualExclusion<T extends MergedSettings>(
+  settings: T,
+): T {
+  const deepseek = settings.deepseek;
+  if (deepseek?.thinking === true && deepseek?.webSearch === true) {
+    deepseek.webSearch = false;
+    debugLogger.warn('[settings] thinking/search conflict — search forced off');
+  }
+  return settings;
 }
 
 /**
@@ -291,11 +311,13 @@ export function createTestMergedSettings(
   overrides: Partial<Settings> = {},
 ): MergedSettings {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return customDeepMerge(
-    getMergeStrategyForPath,
-    getDefaultsFromSchema(),
-    overrides,
-  ) as MergedSettings;
+  return enforceDeepSeekMutualExclusion(
+    customDeepMerge(
+      getMergeStrategyForPath,
+      getDefaultsFromSchema(),
+      overrides,
+    ) as MergedSettings,
+  );
 }
 
 /**

@@ -20,6 +20,11 @@ interface BooleanSettingDialogProps {
   title: string;
   /** Dotted settings path, e.g. `deepseek.thinking`. */
   settingKey: string;
+  /**
+   * Optional mutually-exclusive companion setting written with the inverse
+   * value (e.g. thinking=true forces webSearch=false).
+   */
+  companionSettingKey?: string;
   /** Value to use when the setting has never been written. */
   defaultValue: boolean;
   description?: string;
@@ -43,6 +48,7 @@ function readByPath(source: unknown, dottedPath: string): unknown {
 export function BooleanSettingDialog({
   title,
   settingKey,
+  companionSettingKey,
   defaultValue,
   description,
   onClose,
@@ -101,6 +107,11 @@ export function BooleanSettingDialog({
           initialIndex={current ? 0 : 1}
           onSelect={(value) => {
             setSetting(SettingScope.User, settingKey, value);
+            if (companionSettingKey) {
+              // DeepSeek CLI: thinking and web search are mutually exclusive;
+              // flip the companion setting in the same write.
+              setSetting(SettingScope.User, companionSettingKey, !value);
+            }
             onClose?.();
           }}
         />

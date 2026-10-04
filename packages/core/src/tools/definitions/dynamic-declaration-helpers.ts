@@ -237,10 +237,10 @@ export function getUpdateTopicDeclaration(): FunctionDeclaration {
         [TOPIC_PARAM_STRATEGIC_INTENT]: {
           type: 'string',
           description:
-            'A mandatory one-sentence statement of your immediate intent.',
+            'A one-sentence statement of what the user is trying to achieve. Example: "Analyse the LoFT repo and write a report." Optional.',
         },
       },
-      required: [TOPIC_PARAM_STRATEGIC_INTENT],
+      required: [],
     },
   };
 }

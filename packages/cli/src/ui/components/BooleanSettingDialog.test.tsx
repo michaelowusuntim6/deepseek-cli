@@ -103,4 +103,35 @@ describe('<BooleanSettingDialog />', () => {
 
     expect(lastFrame()).toContain('On (current)');
   });
+
+  it('writes the mutually-exclusive companion setting with the inverse value', async () => {
+    const settings = withUserSettings({
+      deepseek: { thinking: false, webSearch: true },
+    });
+    const setValueSpy = vi.spyOn(settings, 'setValue');
+    const { stdin } = await renderWithProviders(
+      <BooleanSettingDialog
+        title="DeepSeek DeepThink"
+        settingKey="deepseek.thinking"
+        companionSettingKey="deepseek.webSearch"
+        defaultValue={false}
+        onClose={onClose}
+      />,
+      { settings },
+    );
+
+    // Highlight starts on the current value (Off); move to On and select it.
+    act(() => {
+      stdin.write('\x1b[B');
+    });
+    act(() => {
+      stdin.write('\r');
+    });
+
+    await waitFor(() => {
+      const calls = setValueSpy.mock.calls.map(([, key, value]) => [key, value]);
+      expect(calls).toContainEqual(['deepseek.thinking', true]);
+      expect(calls).toContainEqual(['deepseek.webSearch', false]);
+    });
+  });
 });
