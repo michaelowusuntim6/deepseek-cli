@@ -299,6 +299,50 @@ export class DeepSeekContentGenerator implements ContentGenerator {
   }
 
   /**
+   * DeepSeek usually tags numeric parameters as `string="true"`, so values such
+   * as start_line arrive as "80". Coerce any argument whose tool schema says
+   * integer/number back to a number — otherwise schema validation rejects the
+   * call ("params/start_line must be integer") and the turn is wasted.
+   */
+  private coerceNumericArgs(
+    toolName: string,
+    args: Record<string, unknown>,
+  ): Record<string, unknown> {
+    try {
+      const schema = (
+        this.config.getToolRegistry?.()?.getTool?.(toolName) as
+          | {
+              schema?: {
+                parametersJsonSchema?: {
+                  properties?: Record<string, { type?: string }>;
+                };
+              };
+            }
+          | undefined
+      )?.schema?.parametersJsonSchema;
+      const properties = schema?.properties;
+      if (!properties) {
+        return args;
+      }
+      const coerced: Record<string, unknown> = { ...args };
+      for (const [key, value] of Object.entries(coerced)) {
+        const type = properties[key]?.type;
+        if (
+          (type === 'integer' || type === 'number') &&
+          typeof value === 'string' &&
+          value.trim() !== '' &&
+          !Number.isNaN(Number(value))
+        ) {
+          coerced[key] = type === 'integer' ? parseInt(value, 10) : Number(value);
+        }
+      }
+      return coerced;
+    } catch {
+      return args;
+    }
+  }
+
+  /**
    * One-shot corrective message sent when the model emitted malformed DSML.
    * Keeps the model on DSML and lists the only tool names it may use.
    */
@@ -360,10 +404,12 @@ export class DeepSeekContentGenerator implements ContentGenerator {
             {
               functionCall: {
                 name: parsed.name,
-                args:
+                args: this.coerceNumericArgs(
+                  parsed.name,
                   args && typeof args === 'object'
                     ? (args as Record<string, unknown>)
                     : {},
+                ),
               },
             },
           ];

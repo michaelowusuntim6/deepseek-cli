@@ -204,10 +204,23 @@ export function dsmlCallsToJson(text: string): ParsedToolCall[] {
         invokeBody,
         valueStart,
       );
-      if (!valueClose) {
+      // DeepSeek sometimes drops a parameter's opening tag. In that case the
+      // naive scan runs past the missing close tag and swallows the next
+      // parameter's markup into this value (observed live:
+      // end_line = '80</…parameter name="path" …>'). Stop at whichever comes
+      // first: this parameter's close tag, or the NEXT parameter's open tag.
+      DSML_PARAM_OPEN_RE.lastIndex = valueStart;
+      const nextOpen = DSML_PARAM_OPEN_RE.exec(invokeBody);
+      const valueEnd =
+        nextOpen && (!valueClose || nextOpen.index < valueClose.index)
+          ? nextOpen.index
+          : valueClose
+            ? valueClose.index
+            : -1;
+      if (valueEnd === -1) {
         break; // incomplete parameter: stop
       }
-      const valueEnd = valueClose.index;
+      const closeLength = valueClose ? valueClose.length : 0;
       // CRITICAL: raw substring between the boundaries. No `<` scanning.
       const raw = invokeBody.slice(valueStart, valueEnd);
       if (isString) {
@@ -219,7 +232,7 @@ export function dsmlCallsToJson(text: string): ParsedToolCall[] {
           args[paramName] = raw;
         }
       }
-      paramCursor = valueEnd + valueClose.length;
+      paramCursor = valueEnd + closeLength;
     }
     if (Object.keys(args).length === 0) {
       // Fallback shape: nested invoke blocks used as parameters.
