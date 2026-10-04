@@ -73,6 +73,25 @@ export async function checkPolicy(
 
   const { decision } = result;
 
+  // DeepSeek CLI: consult the live autoApprove setting at the approval point.
+  const liveAutoApprove = config.isAutoApproveEnabled?.() ?? false;
+  if (process.env['DEBUG_DEEPSEEK']) {
+    console.error(
+      '[tool-approval] tool=%s autoApprove=%s decision=%s',
+      toolCall.request.name,
+      liveAutoApprove,
+      liveAutoApprove && decision === PolicyDecision.ASK_USER
+        ? 'allow-auto-approve'
+        : decision,
+    );
+  }
+  if (decision === PolicyDecision.ASK_USER && liveAutoApprove) {
+    return {
+      decision: PolicyDecision.ALLOW,
+      rule: result.rule,
+    };
+  }
+
   // If the tool call was initiated by the client (e.g. via a slash command),
   // we treat it as implicitly confirmed by the user and bypass the
   // confirmation prompt if the policy engine's decision is 'ASK_USER'.

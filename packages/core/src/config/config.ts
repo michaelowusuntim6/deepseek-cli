@@ -624,6 +624,12 @@ export interface ConfigParameters {
   geminiMdFileCount?: number;
   geminiMdFilePaths?: string[];
   approvalMode?: ApprovalMode;
+  /**
+   * DeepSeek CLI: live getter for `security.autoApprove`. Consulted at the
+   * point of tool approval so retried turns and mid-session changes behave
+   * correctly. Defaults to disabled when not provided (e.g. in unit tests).
+   */
+  getAutoApprove?: () => boolean;
   showMemoryUsage?: boolean;
   contextFileName?: string | string[];
   accessibility?: AccessibilitySettings;
@@ -921,6 +927,7 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly workspacePoliciesDir: string | undefined;
   readonly messageBus: MessageBus;
   private readonly policyEngine: PolicyEngine;
+  private readonly getAutoApprove?: () => boolean;
   private policyUpdateConfirmationRequest:
     | PolicyUpdateConfirmationRequest
     | undefined;
@@ -1033,6 +1040,7 @@ export class Config implements McpContext, AgentLoopContext {
     this.worktreeSettings = params.worktreeSettings;
 
     this._sandboxPolicyManager = new SandboxPolicyManager();
+    this.getAutoApprove = params.getAutoApprove;
     const initialApprovalMode =
       params.approvalMode ??
       params.policyEngineConfig?.approvalMode ??
@@ -2760,6 +2768,13 @@ export class Config implements McpContext, AgentLoopContext {
 
   getApprovalMode(): ApprovalMode {
     return this.policyEngine.getApprovalMode();
+  }
+
+  /**
+   * DeepSeek CLI: live `security.autoApprove` value, re-read at approval time.
+   */
+  isAutoApproveEnabled(): boolean {
+    return this.getAutoApprove?.() ?? false;
   }
 
   isPlanMode(): boolean {

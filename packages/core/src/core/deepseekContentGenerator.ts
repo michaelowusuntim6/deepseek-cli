@@ -337,15 +337,36 @@ export class DeepSeekContentGenerator implements ContentGenerator {
     }
     const settings = readDeepSeekSettings();
     const thinking = this.options.thinking ?? settings.thinking;
-    const search = this.options.search ?? settings.webSearch;
+    let search = this.options.search ?? settings.webSearch;
+    // Fix: DeepSeek's chat rejects the combination of DeepThink (thinking) with
+    // web search when the model wants to use a tool — the stream comes back as
+    // `response/status INCOMPLETE` + `generation_err` ("Server is temporarily
+    // unavailable"), which the harness then mis-reads as a thoughts-only turn.
+    // The two features are mutually exclusive in the DeepSeek web chat, so when
+    // thinking is on we do not request web search.
+    if (thinking && search) {
+      if (process.env['DEBUG_DEEPSEEK']) {
+        console.error(
+          '[deepseek-flags] thinking=true -> search_enabled=false (mutually exclusive)',
+        );
+      }
+      search = false;
+    }
     const generator = this.client.streamParts(prompt, {
       conversationId: priorConversationId,
       thinking,
       search,
       modelType: this.options.modelType,
     });
+    let thinkFragments = 0;
+    let responseFragments = 0;
     let result = await generator.next();
     while (!result.done) {
+      if (result.value.kind === 'thinking') {
+        thinkFragments += 1;
+      } else if (result.value.kind === 'answer') {
+        responseFragments += 1;
+      }
       if (process.env['DEBUG_DEEPSEEK'] && result.value.kind === 'tool_call') {
         // Fix 1 audit: shows the exact parameter names DeepSeek emitted.
         console.error(`[deepseek-tool-call] ${result.value.text}`);
@@ -356,12 +377,27 @@ export class DeepSeekContentGenerator implements ContentGenerator {
       }
       result = await generator.next();
     }
+    const streamFinished = result.value.finished;
+    if (process.env['DEBUG_DEEPSEEK']) {
+      console.error(
+        '[deepseek-stream] finished=%s think_fragments=%d response_fragments=%d',
+        streamFinished,
+        thinkFragments,
+        responseFragments,
+      );
+    }
     if (isUtility) {
       this.utilityConversationId = result.value.conversationId;
     } else {
       this.conversationId = result.value.conversationId;
     }
-    yield makeResponse([], 'STOP');
+    // Bug 1: only a FINISHED stream is a completed turn. When DeepSeek ends the
+    // stream INCOMPLETE (server-side generation error) we must NOT hand the
+    // harness a synthetic STOP — that makes it look like a clean turn that
+    // produced thoughts but no answer, which triggers the "you previously
+    // generated thoughts" continuation. Report it as a blocked stream instead
+    // so the harness retries the same request cleanly.
+    yield makeResponse([], streamFinished ? 'STOP' : 'OTHER');
   }
 
   async generateContent(

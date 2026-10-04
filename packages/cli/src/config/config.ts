@@ -1032,6 +1032,15 @@ export async function loadCliConfig(
     enableEnvironmentVariableRedaction:
       settings.security?.environmentVariableRedaction?.enabled,
     approvalMode,
+    // DeepSeek CLI: `security.autoApprove` is re-read at tool-approval time so
+    // retried turns and mid-session settings changes stay in YOLO mode.
+    getAutoApprove: () => {
+      const live = loadedSettings?.merged ?? settings;
+      if (live.security?.disableYoloMode || live.admin?.secureModeEnabled) {
+        return false;
+      }
+      return live.security?.autoApprove ?? true;
+    },
     disableYoloMode:
       settings.security?.disableYoloMode || settings.admin?.secureModeEnabled,
     disableAlwaysAllow:

@@ -193,6 +193,10 @@ export class DeepSeekClient {
         const line = buffer.slice(0, newline).replace(/\r$/, '');
         buffer = buffer.slice(newline + 1);
         if (line.startsWith('data:')) {
+          if (process.env['DEBUG_DEEPSEEK_SSE']) {
+            // Raw SSE audit: shows exactly which fragments/status the server sent.
+            console.error('[deepseek-sse]', line.slice(5, 600));
+          }
           for (const part of parser.feedPayload(line.slice(5).trim())) {
             parts.push(part);
             yield part;
@@ -210,6 +214,19 @@ export class DeepSeekClient {
     for (const part of parser.flush()) {
       parts.push(part);
       yield part;
+    }
+    if (process.env['DEBUG_DEEPSEEK']) {
+      // Bug 1 audit: why the reader decided the stream was over. Only
+      // `response/status FINISHED` is a clean end; anything else is a server
+      // stop (e.g. `INCOMPLETE` + `generation_err`).
+      console.error(
+        '[deepseek-stream-close] reason=%s',
+        parser.state.finished
+          ? 'finished'
+          : parser.state.incomplete
+            ? 'incomplete'
+            : 'eof-without-status',
+      );
     }
     void sawBytes;
     onState?.(parser.state);
